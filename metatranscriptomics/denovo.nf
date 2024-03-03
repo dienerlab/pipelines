@@ -19,7 +19,7 @@ params.overlap = 0.8
 
 def helpMessage() {
     log.info"""
-    ~~~ Gibbons Lab Metatranscriptomics Workflow ~~~
+    ~~~ Diener Lab Metatranscriptomics Workflow ~~~
 
     Usage:
     A run using all,default parameters can be started with:

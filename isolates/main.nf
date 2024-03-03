@@ -16,7 +16,7 @@ params.checkm2 = "/proj/gibbons/refs/checkm2/uniref100.KO.1.dmnd"
 
 def helpMessage() {
     log.info"""
-    ~~~ Gibbons Lab Isolate Shotgun Sequencing Workflow ~~~
+    ~~~ Diener Lab Isolate Shotgun Sequencing Workflow ~~~
 
     Usage:
     A run can be started with:

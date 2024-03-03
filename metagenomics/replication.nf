@@ -10,7 +10,7 @@ params.threads = 12
 
 def helpMessage() {
     log.info"""
-    ~~~ Gibbons Lab Replication Rate workflow ~~~
+    ~~~ Diener Lab Replication Rate workflow ~~~
 
     Usage:
     A run using all,default parameters can be started with:

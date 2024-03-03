@@ -37,7 +37,7 @@ singularity.runOptions = "--no-home -B /MY/DATA/DIR,/tmp"
 ## Options:
 
 ```
-~~~ Gibbons Lab Metabolic Model Builder Workflow ~~~
+~~~ Diener Lab Metabolic Model Builder Workflow ~~~
 
 Usage:
 A run using all,default parameters can be started with:

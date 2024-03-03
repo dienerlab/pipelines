@@ -13,7 +13,7 @@ params.minsamples = 1
 
 def helpMessage() {
     log.info"""
-    ~~~ Gibbons Lab Strain Replication Workflow ~~~
+    ~~~ Diener Lab Strain Replication Workflow ~~~
 
     Usage:
     A run using all,default parameters can be started with:

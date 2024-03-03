@@ -16,7 +16,7 @@ params.threads = 20
 
 def helpMessage() {
     log.info"""
-    ~~~ Gibbons Lab Metagenomics Workflow ~~~
+    ~~~ Diener Lab Metagenomics Workflow ~~~
 
     Usage:
     A run using all,default parameters can be started with:

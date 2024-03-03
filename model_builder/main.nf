@@ -17,7 +17,7 @@ params.db_name = "database"
 
 def helpMessage() {
     log.info"""
-    ~~~ Gibbons Lab Metabolic Model Builder Workflow ~~~
+    ~~~ Diener Lab Metabolic Model Builder Workflow ~~~
 
     Usage:
     A run using all,default parameters can be started with:
