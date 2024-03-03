@@ -1,0 +1,17 @@
+name: model_builder
+channels:
+  - conda-forge
+  - bioconda
+  - default
+dependencies:
+  - python=3.8
+  - nextflow
+  - diamond
+  - cobra
+  - pip
+  - wheel
+  - prodigal
+  - pip:
+    - carveme
+    - memote
+    - /proj/gibbons/software/ibm/cplex/python/3.8/x86-64_linux/
