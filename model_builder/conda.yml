@@ -4,7 +4,7 @@ channels:
   - bioconda
   - default
 dependencies:
-  - python=3.8
+  - python>=3.8
   - nextflow
   - diamond
   - cobra
@@ -14,4 +14,4 @@ dependencies:
   - pip:
     - carveme
     - memote
-    - /proj/gibbons/software/ibm/cplex/python/3.8/x86-64_linux/
+    - /home/isilon/users/o_diener/software/cplex/python/3.x/x86-64_linux/

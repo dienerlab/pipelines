@@ -4,28 +4,26 @@ channels:
   - bioconda
   - defaults
 dependencies:
-  - python>=3.8
-  - nextflow>=20.10.0
+  - python
+  - diamond
+  - nextflow>=23.10.0
   - fastp
   - megahit
-  - kraken2==2.1.2
+  - kraken2==2.1.3
   - bracken==2.6.0
   - krakentools
-  - bowtie2
   - prodigal
   - metabat2
-  - salmon
+  - salmon>=1.0
   - pandas
   - samtools
   - multiqc
   - biopython
   - mmseqs2
-  - bioconda::cat
   - pip
-  - matplotlib
-  - numpy
-  - scipy
+  - eggnog-mapper
   - pysam
+  - scipy
+  - matplotlib
   - pip:
-    - eggnog-mapper
     - git+https://github.com/tyjo/coptr

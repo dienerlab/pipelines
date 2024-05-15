@@ -2,8 +2,8 @@
 
 nextflow.enable.dsl = 2
 
-params.genomes = "${baseDir}/data/genomes.csv"
-params.data_dir = "${baseDir}/data"
+params.genomes = "${launchDir}/data/genomes.csv"
+params.data_dir = "${launchDir}/data"
 params.media_db = null
 params.media = null
 params.scale = 1
@@ -12,6 +12,7 @@ params.threads = 12
 params.gapseq_bad_score = 100
 params.gapseq_good_score = 200
 params.simulate = false
+params.memoteformat = "json"
 params.db_name = "database"
 
 
@@ -122,15 +123,18 @@ process build_carveme {
 }
 
 process build_gapseq {
-  cpus 3
+  cpus 1
+  memory "2GB"
   publishDir "${params.data_dir}/gapseq_draft"
-  errorStrategy 'ignore'
+  time "10h"
+
+  errorStrategy "ignore"
 
   input:
   tuple val(id), val(domain), path(assembly)
 
   output:
-  tuple val("${id}"), path("${id}-draft.RDS"), path("${id}-rxnWeights.RDS"), path("${id}-rxnXgenes.RDS")
+  tuple val("${id}"), path("${id}-draft.RDS"), path("${id}-rxnWeights.RDS"), path("${id}-rxnXgenes.RDS"), path("${id}-all-Pathways.tbl")
 
   """
     gapseq find -O -p all -k -v 1 -t ${domain} ${assembly} > ${id}.log || true
@@ -151,11 +155,16 @@ process build_gapseq {
 }
 
 process gapfill_gapseq {
-  cpus 3
+  cpus 1
+  memory "2GB"
+  time "2h"
+
+  errorStrategy "ignore"
+
   publishDir "${params.data_dir}/gapseq_models", mode: "copy", overwrite: true
 
   input:
-  tuple val(id), path(draft), path(weights), path(rxnXgenes)
+  tuple val(id), path(draft), path(weights), path(rxnXgenes), path(pathways)
 
   output:
   tuple val(id), path("${id}.xml.gz"), path("${id}.log")
@@ -169,7 +178,7 @@ process gapfill_gapseq {
     """
   else
     """
-    cp /opt/gapseq/dat/media/gut.csv medium.csv
+    gapseq medium -m ${draft} -p ${pathways} -o medium.csv
     gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} > ${id}.log
     gzip ${id}.xml
     """
@@ -177,25 +186,27 @@ process gapfill_gapseq {
 
 process check_model {
   cpus 1
+  memory "8GB"
+  time "30 m"
   publishDir "${params.data_dir}/model_qualities", mode: "copy", overwrite: true
 
   input:
   tuple val(id), path(model), path(log)
 
   output:
-  tuple val("${id}"), path("${id}.html.gz")
+  tuple val("${id}"), path("${id}.json.gz")
 
   script:
-  if (params.method == "gapseq")
+  if (params.memoteformat == "json")
     """
     CPX_PARAM_THREADS=${task.cpus} OMP_NUM_THREADS=${task.cpus} \
-    memote report snapshot ${model} --filename ${id}.html
-    gzip ${id}.html
+    memote run ${model} --filename ${id}.json || true
+    gzip ${id}.json
     """
   else
     """
     CPX_PARAM_THREADS=${task.cpus} OMP_NUM_THREADS=${task.cpus} \
-    memote report snapshot ${model} --solver cplex --filename ${id}.html
+    memote report snapshot ${model} --filename ${id}.html
     gzip ${id}.html
     """
 }
@@ -282,11 +293,15 @@ process summarize_fba {
 }
 
 process model_db {
-  cpus params.threads
+  cpus 8
+  memory "8GB"
+  time "3h"
+
   publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
   input:
   path(models)
+  each path(genomes)
 
   output:
   path("${params.db_name}_gtdb207_strain_1.zip")
@@ -295,14 +310,16 @@ process model_db {
   #!/usr/bin/env python3
 
   import pandas as pd
+  from glob import glob
   from micom.workflows import build_database
 
-  manifest = pd.read_csv("${params.genomes}")
-  taxa = manifest.lineage.str.split(";", expand=True)
+  manifest = pd.read_csv("${genomes}")
+  taxa = manifest.lineage.str.split(";", expand=True).iloc[:, 0:7]
   taxa.columns = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
   manifest = pd.concat([manifest, taxa], axis=1)
   manifest["strain"] = manifest.id.str.replace("_", " ")
   manifest["file"] = manifest.id + ".xml.gz"
+  manifest = manifest[manifest.file.isin(glob("*.xml.gz"))]
 
   db = build_database(
     manifest,
@@ -346,5 +363,5 @@ workflow {
     .map{it -> it[1]}
     .collect()
     .set{all_models}
-  model_db(all_models)
+  model_db(all_models, Channel.fromPath("${params.genomes}"))
 }

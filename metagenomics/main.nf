@@ -2,11 +2,12 @@
 
 nextflow.enable.dsl = 2
 
-params.data_dir = "${baseDir}/data"
+params.data_dir = "${launchDir}/data"
 params.raw_data = "raw"
-params.refs = "${baseDir}/refs"
+params.refs = "${launchDir}/refs"
 params.eggnog_refs = "${params.refs}/eggnog"
-params.kraken2_db = "${params.refs}/kraken2_db_uhgg_v2.0.1"
+params.kraken2_db = "${params.refs}/k2_standard_202306"
+params.kraken2_mem = null
 
 params.single_end = false
 params.trim_front = 5
@@ -20,6 +21,8 @@ params.identity = 0.99
 params.threads = 12
 params.confidence = 0.3
 params.ranks = "D,P,G,S"
+
+def db_size = null
 
 def helpMessage() {
     log.info"""
@@ -43,6 +46,8 @@ def helpMessage() {
       --refs [str]                  Folder in which to find references DBs.
       --eggnogg_refs [str]          Where to find EGGNOG references. Defaults to <refs>/eggnog.
       --kraken2_db [str]            Where to find the Kraken2 reference. Defaults to <refs>/kraken2_default.
+      --kraken2_mem [str]           The maximum amount of memory for Kraken2. If not set will choose this automatically
+                                    based on the database size. Thus, only use to limit Kraken2 to less memory.
     Quality filter:
       --trim_front [str]            How many bases to trim from the 5' end of each read.
       --min_length [str]            Minimum accepted length for a read.
@@ -67,7 +72,10 @@ Channel
     .set{levels}
 
 process preprocess {
-    cpus 4
+    cpus 3
+    memory "4GB"
+    time "30m"
+
     publishDir "${params.data_dir}/preprocessed"
 
     input:
@@ -98,7 +106,9 @@ process preprocess {
 }
 
 process kraken {
-    cpus 8
+    cpus 4
+    memory db_size
+    time "2h"
     publishDir "${params.data_dir}/kraken2"
 
     input:
@@ -127,6 +137,8 @@ process kraken {
 
 process count_taxa {
     cpus 4
+    memory "8GB"
+    time "30m"
 
     input:
     tuple val(id), path(kraken), path(report), val(lev)
@@ -147,6 +159,8 @@ process count_taxa {
 
 process merge_taxonomy {
     cpus 1
+    memory "4GB"
+    time "4h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -201,6 +215,10 @@ process merge_taxonomy {
 }
 
 process multiqc {
+    cpus 1
+    memory "8GB"
+    time "1h"
+
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -217,6 +235,9 @@ process multiqc {
 
 process megahit {
     cpus 4
+    memory "16GB"
+    time "12h"
+
     publishDir "${params.data_dir}/assembled"
 
     input:
@@ -228,7 +249,7 @@ process megahit {
     script:
     if (params.single_end)
         """
-        megahit -r ${reads} -o contigs -t ${task.cpus} -m 0.4 \
+        megahit -r ${reads} -o contigs -t ${task.cpus} -m 16e9 \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
@@ -242,6 +263,8 @@ process megahit {
 
 process find_genes {
     cpus 1
+    memory "2GB"
+    time "1h"
     publishDir "${params.data_dir}/genes"
 
     input:
@@ -262,6 +285,9 @@ process find_genes {
 
 process cluster_proteins {
     cpus params.threads/2
+    memory "40GB"
+    time "2h"
+
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -274,7 +300,7 @@ process cluster_proteins {
     mmseqs easy-linclust ${proteins} proteins tmp \
         --cov-mode 0 -c ${params.overlap} \
         --min-seq-id ${params.identity} \
-        --split-memory-limit 128G --threads ${task.cpus}
+        --split-memory-limit 32G --threads ${task.cpus}
     rm -rf proteins_all_seqs.fna tmp
     mv proteins_rep_seq.fasta proteins.faa
     """
@@ -282,6 +308,8 @@ process cluster_proteins {
 
 process filter_transcripts {
     cpus 1
+    memory "8GB"
+    time "8h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -316,6 +344,8 @@ process filter_transcripts {
 
 process map_and_count {
     cpus 2
+    memory "16GB"
+    time "2h"
 
     input:
     tuple val(id), path(reads), path(json), path(html), path(genes), path(proteins)
@@ -342,6 +372,8 @@ process map_and_count {
 
 process merge_counts {
     cpus 1
+    memory "8GB"
+    time "4h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -364,7 +396,7 @@ process merge_counts {
     with gzip.open("gene_counts.csv.gz", "ab") as gzf:
         for p in paths:
             sample = path.splitext(path.basename(p))[0]
-            print("Processing sample {sample}...")
+            print(f"Processing sample {sample}...")
             try:
                 counts = pd.read_csv(p, sep="\t").query("NumReads > 0.1")
             except Exception:
@@ -382,6 +414,8 @@ process merge_counts {
 
 process cluster_counts {
     cpus 1
+    memory "8GB"
+    time "4h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -416,6 +450,8 @@ process cluster_counts {
 
 process annotate {
     cpus params.threads
+    memory "64GB"
+    time "2d"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -425,11 +461,11 @@ process annotate {
     path("proteins.emapper.annotations")
 
     """
-    TMP=\$(mktemp -d -t eggnog_results_XXXXXXXXXX)
+    EMTMP=\$(mktemp -d -t eggnog_results_XXXXXXXXXX)
     emapper.py -i ${proteins} --output proteins -m diamond \
-        --data_dir ${params.eggnog_refs} --scratch_dir \$TMP --temp_dir /tmp \
+        --data_dir ${params.eggnog_refs} --scratch_dir \$EMTMP --temp_dir \$TMPDIR \
         --cpu ${task.cpus}
-    rm -rf \$TMP
+    rm -rf \$EMTMP
     """
 }
 
@@ -449,6 +485,13 @@ workflow {
             ])
             .ifEmpty { error "Cannot find any read files in ${params.data_dir}/${params.raw_data}!" }
             .set{raw}
+    }
+
+    if (params.kraken2_mem) {
+        db_size = MemoryUnit.of("${params.kraken2_mem} GB")
+    } else {
+        db_size = MemoryUnit.of(file("${params.kraken2_db}/hash.k2d").size())
+        log.info("Based on the hash size I am reserving ${db_size.toGiga()}GB of memory for Kraken2.")
     }
 
     // quality filtering

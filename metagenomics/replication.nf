@@ -40,6 +40,8 @@ if (params.help) {
 
 process map_reads {
     cpus 4
+    memory "32 GB"
+    time "2h"
     publishDir "${params.data_dir}/alignments"
 
     input:
@@ -69,6 +71,8 @@ process map_reads {
 
 process extract_coverage {
   cpus 1
+  memory "16 GB"
+  time "12h"
   publishDir "${params.data_dir}/coverage"
 
   input:
@@ -85,6 +89,8 @@ process extract_coverage {
 
 process estimate_ptr {
   cpus 1
+  memory "16GB"
+  time "24h"
   publishDir "${params.data_dir}",  mode: "copy", overwrite: true
 
   input:
@@ -100,6 +106,8 @@ process estimate_ptr {
 
 process annotate_ptr {
   cpus 1
+  memory "4GB"
+  time "1h"
   publishDir "${params.data_dir}",  mode: "copy", overwrite: true
 
   input:

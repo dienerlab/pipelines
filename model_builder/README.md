@@ -24,7 +24,7 @@ conda env create -f conda.yml
 For gapseq use singularity:
 
 ```bash
-nextflow run main.nf --method gapseq -with-singularity cdiener/gapseq:2021.04.5
+nextflow run main.nf --method gapseq -with-singularity cdiener/gapseq:2024.03.7
 ```
 
 Make sure that singularity runs with the `--no-home` option and map your data dir
@@ -51,6 +51,7 @@ General options:
   --method                      The method used to build the models. Either `carveme` or `gapseq`.
 Growth Media:
   --media_db                    A file containing growth media specification for CARVEME. This is a
-                                TSV file for carveme and a CSV file for gapseq.
+                                TSV file for carveme and a CSV file for gapseq. If not specified
+                                will return the model without any gapfilling.
   --media                       Comma-separated list of media names to use. Only used for CARVEME.
 ```
