@@ -51,24 +51,27 @@ If present also install R dependencies
 Rscript setup.R
 ```
 
+## Nextflow Configuration
+
 You may also create a [nextflow config](https://www.nextflow.io/docs/latest/config.html) either in the project
-directory as `nextflow.config` or in your user HOME as `~/.nextflow/config`. Here is an example for moneta
+directory as `nextflow.config` or in your user HOME as `~/.nextflow/config`. A template config is
+[included in this repo](nextflow.config). To install it as a global configuration:
 
-```
-executor {
-    name = "local"
-    cpus = 32
-    memory = "350GB"
-}
+On the server run the following to create the config directory
 
-tower {
-    accessToken = "<TOKEN>"
-    enabled = false
-}
+```bash
+mkdir ~/.nextflow
 ```
 
-The tower part is only necessary if you want to use [Nextflow Tower](https://tower.nf)
-to track your pipeline.
+After that edit and copy the config:
+
+```bash
+cp /path/to/pipelines/nextlow.config ~/.nextflow/config
+```
+
+Add in your token if you want to use [Nextflow Tower](https://tower.nf) to track your pipeline.
+
+For slurm substitute the partition name `default` with the SLURM partition.
 
 ## Run the pipeline
 
