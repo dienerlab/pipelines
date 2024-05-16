@@ -11,8 +11,8 @@ params.min_quality = 20
 params.trim_front = 5
 params.threads = 24
 params.version = 1
-params.gtdb = "/proj/gibbons/refs/gtdbtk_r207v2"
-params.checkm2 = "/proj/gibbons/refs/checkm2/uniref100.KO.1.dmnd"
+params.gtdb = "${launchDir}/refsgtdbtk_r207v2"
+params.checkm2 = "${launchDir}/refscheckm2/uniref100.KO.1.dmnd"
 
 def helpMessage() {
     log.info"""
@@ -51,7 +51,7 @@ if (params.help) {
 process preprocess {
     cpus 4
     memory "4 GB"
-    publishDir "${baseDir}/${params.data}/preprocessed"
+    publishDir "${launchDir}/${params.data}/preprocessed"
 
     input:
     tuple val(id), path(reads)
@@ -83,7 +83,7 @@ process preprocess {
 process megahit {
     cpus 4
     memory "32 GB"
-    publishDir "${baseDir}/${params.data}/assemblies", mode: "copy", overwrite: true
+    publishDir "${launchDir}/${params.data}/assemblies", mode: "copy", overwrite: true
 
     input:
     tuple val(id), path(reads), path(json), path(report)
@@ -111,7 +111,7 @@ process megahit {
 process multiqc {
     cpus 1
     memory "8 GB"
-    publishDir "${baseDir}/${params.data}", mode: "copy", overwrite: true
+    publishDir "${launchDir}/${params.data}", mode: "copy", overwrite: true
 
     input:
     val(preprocess)
@@ -120,14 +120,14 @@ process multiqc {
     path("multiqc_report.html")
 
     """
-    multiqc ${baseDir}/data/preprocessed
+    multiqc ${launchDir}/data/preprocessed
     """
 }
 
 process classify {
     cpus params.threads
     memory "64 GB"
-    publishDir "${baseDir}/${params.data}", mode: "copy", overwrite: true
+    publishDir "${launchDir}/${params.data}", mode: "copy", overwrite: true
 
     input:
     path(assemblies)
@@ -146,7 +146,7 @@ process classify {
 process tree {
     cpus params.threads
     memory "64 GB"
-    publishDir "${baseDir}/${params.data}", mode: "copy", overwrite: true
+    publishDir "${launchDir}/${params.data}", mode: "copy", overwrite: true
 
     input:
     path(gtdb)
@@ -166,7 +166,7 @@ process tree {
 process checkm {
     cpus params.threads
     memory "64 GB"
-    publishDir "${baseDir}/${params.data}", mode: "copy", overwrite: true
+    publishDir "${launchDir}/${params.data}", mode: "copy", overwrite: true
 
     input:
     path(assemblies)
@@ -184,7 +184,7 @@ process checkm {
 }
 
 workflow {
-    data_dir = "${baseDir}/${params.data}"
+    data_dir = "${launchDir}/${params.data}"
     // find files
     if (params.single_end) {
         Channel

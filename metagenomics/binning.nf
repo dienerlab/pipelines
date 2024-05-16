@@ -2,16 +2,18 @@
 
 nextflow.enable.dsl = 2
 
-params.data_dir = "${baseDir}/data"
+params.data_dir = "${launchDir}/data"
 params.single_end = false
 params.min_contig_length = 5000
-params.gtdb = "/proj/gibbons/refs/gtdb"
-params.checkm = "/proj/gibbonsrefs/checkm2"
+params.gtdb = "${launchDir}/refs/gtdb"
+params.checkm = "${launchDir}/refs/checkm2"
 
 maxcpus = 24
 
 process contig_align {
     cpus 8
+    memory "16 GB"
+    time "2h"
 
     input:
     tuple val(id), path(contigs), path(reads)
@@ -28,6 +30,8 @@ process contig_align {
 
 process coverage {
     cpus 1
+    memory "32 GB"
+    time "12h"
     publishDir "${params.data_dir}"
 
     input:
@@ -43,6 +47,8 @@ process coverage {
 
 process metabat {
     cpus 8
+    memory "16 GB"
+    time "12h"
     publishDir "${params.data_dir}"
 
     input:
@@ -60,6 +66,8 @@ process metabat {
 
 process checkm {
     cpus params.threads
+    memory "32 GB"
+    time "4h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -75,6 +83,8 @@ process checkm {
 
 process gtdb_classify {
     cpus params.threads
+    memory "64 GB"
+    time "24h"
 
     publishDir "${params.data_dir}"
 

@@ -10,6 +10,8 @@ process assembly_summaries {
     maxRetries 4
     errorStrategy { (task.attempt <= maxRetries)  ? 'retry' : 'ignore' }
     cpus 2
+    memory "2GB"
+    time "2h"
 
     publishDir "${launchDir}/data/", mode: "copy", overwrite: true
 
@@ -30,6 +32,7 @@ process download {
     errorStrategy { (task.attempt <= maxRetries)  ? 'retry' : 'ignore' }
     cpus 2
     memory "4 GB"
+    time "2h"
 
     input:
     tuple val(acc), val(sid), val(url)
@@ -46,6 +49,7 @@ process merge_species {
     publishDir "${launchDir}/data/background_genomes", mode: "copy", overwrite: true
     cpus 1
     memory "4 GB"
+    time "1h"
 
     input:
     tuple val(sid), path(fasta)

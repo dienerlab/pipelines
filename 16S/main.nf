@@ -5,15 +5,17 @@ params.maxEE = 2
 params.merge = true
 params.min_overlap = 8
 params.forward_only = false
-params.data_dir = "${baseDir}/data"
-params.taxa_db = "/proj/gibbons/refs/silva_nr99_v138.1_train_set.fa.gz"
-params.species_db = "/proj/gibbons/refs/silva_species_assignment_v138.1.fa.gz"
+params.data_dir = "${launchDir}/data"
+params.taxa_db = "${launchDir}/refs/silva_nr99_v138.1_train_set.fa.gz"
+params.species_db = "${launchDir}/refs/silva_species_assignment_v138.1.fa.gz"
 params.threads = 16
 params.pattern = "illumina"
 
 process quality_control {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
     cpus params.threads
+    memory "32 GB"
+    time "8h"
 
     output:
     tuple path("manifest.csv"), path("qc.rds"), path("*.png")
@@ -54,6 +56,8 @@ process quality_control {
 process trim {
     publishDir "${params.data_dir}"
     cpus params.threads
+    memory "16 GB"
+    time "24h"
 
     input:
     tuple path(manifest), path(qc), path(pl)
@@ -89,6 +93,8 @@ process trim {
 process denoise {
     publishDir "${params.data_dir}/denoise"
     cpus params.threads
+    memory "64 GB"
+    time "2d"
 
     input:
     tuple path(procced), path(artifact)
@@ -124,6 +130,8 @@ process tree {
     publishDir "${params.data_dir}", mode: 'copy', overwrite: true
 
     cpus params.threads
+    memory "64 GB"
+    time "24h"
 
     input:
     tuple path(stats), path(denoised), path(ps)
@@ -176,6 +184,8 @@ process tree {
 process tables {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
     cpus 1
+    memory "16 GB"
+    time "1h"
 
     input:
     tuple path(stats), path(arti), path(ps)

@@ -1,13 +1,13 @@
 nextflow.enable.dsl=2
 
-params.runtable = "${baseDir}/data/runtable.csv"
+params.runtable = "${launchDir}/data/runtable.csv"
 
 process download {
     cpus 6
     maxRetries 3
     errorStrategy { (task.attempt <= maxRetries)  ? 'retry' : 'ignore' }
     scratch "/tmp"
-    publishDir "${baseDir}/data/raw", mode: 'copy'
+    publishDir "${launchDir}/data/raw", mode: 'copy'
 
     input:
     val(run)
@@ -23,7 +23,7 @@ process download {
 }
 
 process merge {
-    publishDir "${baseDir}/data/merged"
+    publishDir "${launchDir}/data/merged"
 
     cpus 4
 

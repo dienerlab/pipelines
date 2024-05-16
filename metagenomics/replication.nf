@@ -2,10 +2,10 @@
 
 nextflow.enable.dsl = 2
 
-params.data_dir = "${baseDir}/data"
+params.data_dir = "${launchDir}/data"
 params.single_end = false
 params.min_reads = 5000
-params.IGG = "/proj/gibbons/refs/IGG_v1.0_split"
+params.IGG = "${launchDir}/refs/IGG_v1.0_split"
 params.threads = 12
 
 def helpMessage() {

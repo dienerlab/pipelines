@@ -2,10 +2,10 @@
 
 nextflow.enable.dsl = 2
 
-params.data_dir = "${baseDir}/data"
+params.data_dir = "${launchDir}/data"
 params.raw_data = "raw"
 params.transcripts = "data/transcripts.fna.gz"
-params.eggnog_refs = "${baseDir}/eggnog"
+params.eggnog_refs = "${launchDir}/refs/eggnog"
 
 params.single_end = false
 params.trim_front_fwd = 5
@@ -58,7 +58,9 @@ if (params.help) {
 }
 
 process preprocess {
-    cpus 4
+    cpus 3
+    memory "4GB"
+    time "30m"
     publishDir "${params.data_dir}/preprocessed"
 
     input:
@@ -90,6 +92,9 @@ process preprocess {
 }
 
 process multiqc {
+    cpus 1
+    memory "16 GB"
+    time "2h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -105,10 +110,9 @@ process multiqc {
 }
 
 process assemble {
-    publishDir "${params.data_dir}/assembled"
-
     cpus 4
     memory "40 GB"
+    publishDir "${params.data_dir}/assembled"
 
     input:
     tuple val(id), path(reads), path(json), path(html)
@@ -134,6 +138,7 @@ process assemble {
 process cluster_transcripts {
     cpus params.threads/2
     memory "128 GB"
+    time "4h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -156,6 +161,7 @@ process cluster_transcripts {
 process index {
     cpus params.threads
     memory "128 GB"
+    time "8h"
     publishDir "${projectDir}/data"
 
     input:
@@ -172,6 +178,7 @@ process index {
 process quantify {
     cpus 4
     memory "64 GB"
+    time "2h"
 
     publishDir "${projectDir}/data/salmon"
 
@@ -195,6 +202,8 @@ process quantify {
 
 process merge_counts {
     cpus 1
+    memory "16 GB"
+    time "2h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -235,6 +244,8 @@ process merge_counts {
 
 process annotate {
     cpus params.threads
+    memory "64GB"
+    time "2d"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:

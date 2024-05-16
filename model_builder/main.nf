@@ -74,6 +74,8 @@ process init_db {
 
 process find_genes {
   cpus 1
+  memory "2GB"
+  time "1h"
   publishDir "${params.data_dir}/genes", mode: "copy", overwrite: true
 
   input:
@@ -90,6 +92,8 @@ process find_genes {
 
 process build_carveme {
   cpus 2
+  memory "8GB"
+  time "1h"
   publishDir "${params.data_dir}/carveme_models", mode: "copy", overwrite: true
 
   input:
@@ -172,7 +176,7 @@ process gapfill_gapseq {
   script:
   if (params.media_db)
     """
-    cp ${baseDir}/${params.media_db} medium.csv
+    cp ${launchDir}/${params.media_db} medium.csv
     gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} > ${id}.log
     gzip ${id}.xml
     """
@@ -213,6 +217,8 @@ process check_model {
 
 process carveme_fba {
   cpus 1
+  memory "2GB"
+  time "1h"
 
   input:
   tuple val(id), path(model), path(log)
@@ -266,7 +272,9 @@ process carveme_fba {
 }
 
 process summarize_fba {
-  cpus params.threads
+  cpus 1
+  memory "2GB"
+  time "1h"
   publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
   input:

@@ -1,10 +1,10 @@
 nextflow.enable.dsl=2
 
-params.runtable = "${baseDir}/data/links.txt"
+params.runtable = "${launchDir}/data/links.txt"
 
 process download {
     cpus 6
-    publishDir "${baseDir}/data/raw", mode: 'copy'
+    publishDir "${launchDir}/data/raw", mode: 'copy'
 
     input:
     val(link)

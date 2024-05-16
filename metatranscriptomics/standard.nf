@@ -2,7 +2,7 @@
 
 nextflow.enable.dsl = 2
 
-params.data_dir = "${baseDir}/data"
+params.data_dir = "${launchDir}/data"
 params.raw_data = "raw"
 params.transcripts = "data/transcripts.fna.gz"
 
@@ -56,7 +56,9 @@ if (params.help) {
 }
 
 process preprocess {
-    cpus 4
+    cpus 3
+    memory "4GB"
+    time "30m"
     publishDir "${params.data_dir}/preprocessed"
 
     input:
@@ -88,6 +90,9 @@ process preprocess {
 }
 
 process multiqc {
+    cpus 1
+    memory "8GB"
+    time "1h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -105,6 +110,8 @@ process multiqc {
 
 process index {
     cpus params.threads
+    memory "128 GB"
+    time "8h"
     publishDir "${projectDir}/data"
 
     input:
@@ -121,6 +128,7 @@ process index {
 process quantify {
     cpus 4
     memory "64 GB"
+    time "2h"
 
     publishDir "${projectDir}/data/salmon"
 
@@ -144,6 +152,8 @@ process quantify {
 
 process merge_counts {
     cpus 1
+    memory "16 GB"
+    time "2h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:

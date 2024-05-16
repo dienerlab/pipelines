@@ -10,6 +10,7 @@ params.manifest = "${launchDir}/data/manifest.csv"
 process sample {
     cpus 1
     memory "4 GB"
+    time "1h"
     beforeScript "ulimit -Sf unlimited"
 
     input:
@@ -38,6 +39,7 @@ process sample {
 process merge_reads {
     cpus 1
     memory "4 GB"
+    time "1h"
 
     input:
     tuple val(sample_id), path(forward), path(reverse)
@@ -55,7 +57,7 @@ process merge_reads {
 process random_order {
     cpus 4
     memory "16 GB"
-    scratch "/tmp"
+    time "4h"
     publishDir "${launchDir}/data/sampled", mode: "copy", overwrite: true
 
     input:

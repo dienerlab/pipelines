@@ -45,8 +45,10 @@ if (params.help) {
 }
 
 process preprocess {
-    cpus 4
-    publishDir "${baseDir}/data/preprocessed"
+    cpus 3
+    memory "4GB"
+    time "30m"
+    publishDir "${launchDir}/data/preprocessed"
 
     input:
     tuple val(id), path(reads)
@@ -75,7 +77,9 @@ process preprocess {
 
 process build_index {
     cpus params.threads
-    publishDir "${baseDir}/data/"
+    memory "16 GB"
+    time "2h"
+    publishDir "${launchDir}/data/"
 
     input:
     path(ref)
@@ -92,8 +96,10 @@ process build_index {
 }
 
 process map_reads {
-    cpus params.threads/4
-    publishDir "${baseDir}/data/mapped"
+    cpus 3
+    memory "16 GB"
+    time "3h"
+    publishDir "${launchDir}/data/mapped"
 
     input:
     tuple val(id), path(reads), path(report), path(html)
@@ -120,7 +126,10 @@ process map_reads {
 }
 
 process multiqc {
-    publishDir "${baseDir}/data", mode: "copy", overwrite: true
+    cpus 1
+    memory "8GB"
+    time "1h"
+    publishDir "${launchDir}/data", mode: "copy", overwrite: true
 
     input:
     path(files)
@@ -135,7 +144,9 @@ process multiqc {
 
 process alignment_stats {
   cpus 1
-  publishDir "${baseDir}/data/stats"
+  memory "4 GB"
+  time "1h"
+  publishDir "${launchDir}/data/stats"
 
   input:
   tuple val(id), path(bam)
@@ -151,7 +162,9 @@ process alignment_stats {
 
 process extract_coverage {
   cpus 1
-  publishDir "${baseDir}/data"
+  memory "16 GB"
+  time "24h"
+  publishDir "${launchDir}/data"
 
   input:
   tuple val(id), path(bam)
@@ -167,7 +180,9 @@ process extract_coverage {
 
 process estimate_ptr {
   cpus 1
-  publishDir "${baseDir}/data",  mode: "copy", overwrite: true
+  memory "16GB"
+  time "12h"
+  publishDir "${launchDir}/data",  mode: "copy", overwrite: true
 
   input:
   path(coverage)
@@ -185,7 +200,9 @@ process estimate_ptr {
 
 process count_reads {
   cpus 1
-  publishDir "${baseDir}/data",  mode: "copy", overwrite: true
+  memory "16 GB"
+  time "1h"
+  publishDir "${launchDir}/data",  mode: "copy", overwrite: true
 
   input:
   path(coverage)
@@ -216,28 +233,28 @@ workflow {
 // find files
     if (params.single_end) {
         Channel
-            .fromPath("${baseDir}/data/raw/*.fastq.gz")
+            .fromPath("${launchDir}/data/raw/*.fastq.gz")
             .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
             .set{reads}
     } else {
         Channel
             .fromFilePairs([
-                "${baseDir}/data/raw/*_filtered_R{1,2}.fastq.gz",
-                "${baseDir}/data/raw/*_R{1,2}_001.fastq.gz",
-                "${baseDir}/data/raw/*_{1,2}.fastq.gz",
-                "${baseDir}/data/raw/*_{1,2}.fq.gz"
+                "${launchDir}/data/raw/*_filtered_R{1,2}.fastq.gz",
+                "${launchDir}/data/raw/*_R{1,2}_001.fastq.gz",
+                "${launchDir}/data/raw/*_{1,2}.fastq.gz",
+                "${launchDir}/data/raw/*_{1,2}.fq.gz"
             ])
-            .ifEmpty { error "Cannot find any read files in ${baseDir}/data!" }
+            .ifEmpty { error "Cannot find any read files in ${launchDir}/data!" }
             .set{reads}
     }
 
     Channel
-        .fromPath("${baseDir}/data/${params.reference}")
-        .ifEmpty { error "Cannot find the reference in ${baseDir}/data!" }
+        .fromPath("${launchDir}/data/${params.reference}")
+        .ifEmpty { error "Cannot find the reference in ${launchDir}/data!" }
         .set{ref}
     Channel
-        .fromPath("${baseDir}/data/${params.decoy}")
-        .ifEmpty { error "Cannot find the decoy in ${baseDir}/data!" }
+        .fromPath("${launchDir}/data/${params.decoy}")
+        .ifEmpty { error "Cannot find the decoy in ${launchDir}/data!" }
         .set{decoy}
     build_index(ref, decoy)
     reads | preprocess
