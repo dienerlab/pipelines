@@ -6,7 +6,7 @@ params.data_dir = "${launchDir}/data"
 params.raw_data = "raw"
 params.refs = "${launchDir}/refs"
 params.eggnog_refs = "${params.refs}/eggnog"
-params.kraken2_db = "${params.refs}/k2_standard_202306"
+params.kraken2_db = "${params.refs}/kraken2"
 params.kraken2_mem = null
 
 params.single_end = false

@@ -1,0 +1,11 @@
+name: read_simulator
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.10
+  - nextflow>=23.10.0
+  - dwgsim
+  - biopython
+  - pip
