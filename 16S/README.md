@@ -20,7 +20,7 @@ Rscript -e "remotes::install_github('dienerlab/miso')"
 
 > [!TIP]
 > This option will give you the fastest pipeline because natively compiled DADA2 is
-> at least twice as fast as the conda one.
+> at least twice as fast as the conda one. The installation will take a while though.
 
 ```bash
 mamba env create -f conda-no-r.yml
