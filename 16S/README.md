@@ -17,8 +17,9 @@ Rscript -e "remotes::install_github('dienerlab/miso')"
 
 This can be activated with `conda activate 16S`.
 
-### Options 2: Separate R everything else in conda
+### Options 2: Local R, everything else in conda
 
+This requires an installation of R on all nodes running the pipeline.
 
 > [!TIP]
 > This option will give you the fastest pipeline because natively compiled DADA2 is
