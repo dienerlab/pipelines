@@ -160,7 +160,8 @@ process denoise {
     flog.appender(appender.file("denoise.log"))
 
     procced <- readRDS("${artifact}")
-    procced[["files"]] <- procced[["files"]][procced[["passed"]][["preprocessed"]] > 0]
+    passed_reads <- procced[["passed"]][["preprocessed"]]
+    procced[["files"]] <- procced[["files"]][passed_reads > 0]
     denoised <- denoise(
         procced,
         hash = T,
@@ -168,7 +169,8 @@ process denoise {
         merge = ${params.merge ? "T" : "F"},
         min_overlap = ${params.min_overlap},
         taxa_db = "${params.taxa_db}",
-        species_db = "${params.species_db}"
+        species_db = "${params.species_db}",
+        nbases=min(2.5e8, sum(passed_reads) * ${params.trunc_forward})
     )
     saveRDS(denoised, "denoised.rds")
     fwrite(denoised[["passed_reads"]], "read_stats.csv")
