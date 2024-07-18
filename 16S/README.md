@@ -15,6 +15,8 @@ conda activate 16S
 Rscript -e "remotes::install_github('dienerlab/miso')"
 ```
 
+This can be activated with `conda activate 16S`.
+
 ### Options 2: Separate R everything else in conda
 
 
@@ -24,8 +26,11 @@ Rscript -e "remotes::install_github('dienerlab/miso')"
 
 ```bash
 mamba env create -f conda-no-r.yml
+Rscript -e "install.packages('BiocManager')"
 Rscript -e "remotes::install_github('dienerlab/miso')"
 ```
+
+This can be activated with `conda activate 16S-no-r`.
 
 ### Download taxonomy databases
 
