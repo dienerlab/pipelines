@@ -63,7 +63,7 @@ process quality_control {
     time "8h"
 
     output:
-    tuple path("manifest.csv"), path("qc.rds"), path("qc.log"), path("*.png")
+    tuple path("manifest.csv"), path("qc.rds"), path("*.png"), path("qc.log")
 
     """
     #!/usr/bin/env Rscript
@@ -107,7 +107,7 @@ process trim {
     time "24h"
 
     input:
-    tuple path(manifest), path(qc), path(pl)
+    tuple path(manifest), path(qc), path(pl), path(log)
 
     output:
     tuple path("preprocessed"), path("preprocessed.rds"), path("trim.log")
@@ -147,7 +147,7 @@ process denoise {
     time "2d"
 
     input:
-    tuple path(procced), path(artifact)
+    tuple path(procced), path(artifact), path(log)
 
     output:
     tuple path("read_stats.csv"), path("denoised.rds"), path("phyloseq.rds"), path("denoise.log")
@@ -187,7 +187,7 @@ process tree {
     time "24h"
 
     input:
-    tuple path(stats), path(denoised), path(ps)
+    tuple path(stats), path(denoised), path(ps), path(log)
 
     output:
     tuple path("asvs.tree"), path("phyloseq.rds"), path("tree.log")
@@ -242,7 +242,7 @@ process tables {
     time "1h"
 
     input:
-    tuple path(stats), path(arti), path(ps)
+    tuple path(stats), path(arti), path(ps), path(log)
 
     output:
     tuple path("asvs.csv"), path("taxonomy.csv")
