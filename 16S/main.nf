@@ -170,7 +170,7 @@ process denoise {
         min_overlap = ${params.min_overlap},
         taxa_db = "${params.taxa_db}",
         species_db = "${params.species_db}",
-        nbases=min(2.5e8, sum(passed_reads) * ${params.trunc_forward})
+        nbases=1e8
     )
     saveRDS(denoised, "denoised.rds")
     fwrite(denoised[["passed_reads"]], "read_stats.csv")
