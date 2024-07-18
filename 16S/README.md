@@ -55,28 +55,25 @@ A run using all,default parameters can be started with:
 
 General options:
     --data_dir [str]              The main data directory for the analysis (must contain `raw`).
-    --read_length [str]           The length of the reads.
+    --read_length [int]           The length of the reads.
     --forward-only [bool]         Run analysis only on forward reads.
     --threads [int]               The maximum number of threads a single process can use.
                                   This is not the same as the maximum number of total threads used.
-    --pattern [str]               The file pattern for the FASTQ files. Options are illumina, sra, and simple.
+    --pattern [str]               The file pattern for the FASTQ files. Options are illumina, sra, and simple (SE only).
+
 Reference DBs:
     --taxa_db [str]               Path to the default taxonomy database.
     --species_db [str]            Path to species database to perform exact matching to ASVs.
-    --eggnogg_refs [str]          Where to find EGGNOG references. Defaults to <refs>/eggnog.
-    --kraken2_db [str]            Where to find the Kraken2 reference. Defaults to <refs>/kraken2_default.
-    --kraken2_mem [str]           The maximum amount of memory for Kraken2. If not set will choose this automatically
-                                based on the database size. Thus, only use to limit Kraken2 to less memory.
+
 Quality filter:
-    --trim_left [str]             How many bases to trim from the 5' end of each read.
+    --trim_left [int]             How many bases to trim from the 5' end of each read.
     --trunc_forward [int]         Where to truncate forward reads. Default length - 5
     --trunc_reverse [int]         Where to truncate reverse reads. Default length - 20.
-    --maxEE                       Maximum number of expected errors per read.
-    --threshold [str]             Smallest abundance threshold used by Kraken.
+    --maxEE [int]                 Maximum number of expected errors per read.
+
 Denoising:
     --min_overlap [int]           Minimum overlap between reverse and forward ASVs to merge them.
     --merge [bool]                Whether to merge several runs into a single output.
-    --overlap [double]            Minimum required overlap between contigs.
 ```
 
 Most likely run using:
