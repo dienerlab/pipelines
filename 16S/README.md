@@ -80,7 +80,7 @@ Denoising:
 Most likely run using:
 
 ```bash
-nextflow run main.nf -resume -with-conda [PATH/TO/CONDA]/envs/16S[-minimal]
+nextflow run main.nf -resume -with-conda [PATH/TO/CONDA]/envs/16S[-no-r]
 ```
 
 ### Folder structure
