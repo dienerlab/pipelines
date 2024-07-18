@@ -31,10 +31,7 @@ def helpMessage() {
     Reference DBs:
       --taxa_db [str]               Path to the default taxonomy database.
       --species_db [str]            Path to species database to perform exact matching to ASVs.
-      --eggnogg_refs [str]          Where to find EGGNOG references. Defaults to <refs>/eggnog.
-      --kraken2_db [str]            Where to find the Kraken2 reference. Defaults to <refs>/kraken2_default.
-      --kraken2_mem [str]           The maximum amount of memory for Kraken2. If not set will choose this automatically
-                                    based on the database size. Thus, only use to limit Kraken2 to less memory.
+
     Quality filter:
       --trim_left [str]             How many bases to trim from the 5' end of each read.
       --trunc_forward [int]         Where to truncate forward reads. Default length - 5
