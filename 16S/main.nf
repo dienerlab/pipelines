@@ -75,8 +75,7 @@ process quality_control {
 
     files <- find_read_files(
         "${params.data_dir}/raw",
-        pattern = miso:::${params.pattern}_pattern,
-        annotations = miso:::${params.pattern}_annotations,
+        format=file_formats[["${params.pattern}"]],
         dirs_are_runs = T
     )
 
