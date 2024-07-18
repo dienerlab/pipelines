@@ -1,0 +1,33 @@
+name: 16S
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - nextflow
+  - fasttree
+  - r-base
+  - r-data.table
+  - r-remotes
+  - bioconductor-biostrings,
+  - bioconductor-genomicalignments,
+  - bioconductor-rsamtools,
+  - bioconductor-deseq2,
+  - bioconducto-limma,
+  - biocondcutor-shortread,
+  - r-pbapply,
+  - bioconductor-phyloseq,
+  - bioconductor-dada2,
+  - r-ggplot2,
+  - r-scales,
+  - r-stringr,
+  - r-hmisc,
+  - r-yaml,
+  - r-magrittr,
+  - r-futile.logger,
+  - r-digest,
+  - r-rcpp,
+  - r-xml2,
+  - r-zoo,
+  - biocondcutor-apeglm
+  - bioconductor-decipher

@@ -1,0 +1,8 @@
+name: 16S-no-r
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - nextflow
+  - fasttree

@@ -53,6 +53,7 @@ def helpMessage() {
       --min_length [str]            Minimum accepted length for a read.
       --quality_threshold [str]     Smallest acceptable average quality.
       --threshold [str]             Smallest abundance threshold used by Kraken.
+
     Assembly:
       --contig_length [int]         Minimum length of a contig.
       --identity [double]           Minimum average nucleotide identity.

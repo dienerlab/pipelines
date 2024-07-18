@@ -1,15 +1,60 @@
-params.trim_left = 0
-params.trunc_forward = 240
-params.trunc_reverse = 230
+params.trim_left = 3
+params.read_length = 250
+params.trunc_forward = params.read_length - 5
+params.trunc_reverse = params.read_length - 20
 params.maxEE = 2
 params.merge = true
 params.min_overlap = 8
 params.forward_only = false
 params.data_dir = "${launchDir}/data"
-params.taxa_db = "${launchDir}/refs/silva_nr99_v138.1_train_set.fa.gz"
-params.species_db = "${launchDir}/refs/silva_species_assignment_v138.1.fa.gz"
+params.taxa_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r214_genus.fa.gz"
+params.species_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r214_species.fa.gz"
 params.threads = 16
 params.pattern = "illumina"
+
+def helpMessage() {
+    log.info"""
+    ~~~ Diener Lab 16S Workflow ~~~
+
+    Usage:
+    A run using all,default parameters can be started with:
+    > nextflow run main.nf -resume
+
+    General options:
+      --data_dir [str]              The main data directory for the analysis (must contain `raw`).
+      --read_length [str]           The length of the reads.
+      --forward-only [bool]         Run analysis only on forward reads.
+      --threads [int]               The maximum number of threads a single process can use.
+                                    This is not the same as the maximum number of total threads used.
+      --pattern [str]               The file pattern for the FASTQ files. Options are illumina, sra, and simple.
+
+    Reference DBs:
+      --taxa_db [str]               Path to the default taxonomy database.
+      --species_db [str]            Path to species database to perform exact matching to ASVs.
+      --eggnogg_refs [str]          Where to find EGGNOG references. Defaults to <refs>/eggnog.
+      --kraken2_db [str]            Where to find the Kraken2 reference. Defaults to <refs>/kraken2_default.
+      --kraken2_mem [str]           The maximum amount of memory for Kraken2. If not set will choose this automatically
+                                    based on the database size. Thus, only use to limit Kraken2 to less memory.
+    Quality filter:
+      --trim_left [str]             How many bases to trim from the 5' end of each read.
+      --trunc_forward [int]         Where to truncate forward reads. Default length - 5
+      --trunc_reverse [int]         Where to truncate reverse reads. Default length - 20.
+      --maxEE                       Maximum number of expected errors per read.
+      --threshold [str]             Smallest abundance threshold used by Kraken.
+
+    Denoising:
+      --min_overlap [int]           Minimum overlap between reverse and forward ASVs to merge them.
+      --merge [bool]                Whether to merge several runs into a single output.
+      --overlap [double]            Minimum required overlap between contigs.
+    """.stripIndent()
+}
+
+params.help = false
+// Show help message
+if (params.help) {
+    helpMessage()
+    exit 0
+}
 
 process quality_control {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
@@ -23,12 +68,12 @@ process quality_control {
     """
     #!/usr/bin/env Rscript
     library(Biostrings)
-    library(mbtools)
+    library(miso)
 
     files <- find_read_files(
         "${params.data_dir}/raw",
-        pattern = mbtools:::${params.pattern}_pattern,
-        annotations = mbtools:::${params.pattern}_annotations,
+        pattern = miso:::${params.pattern}_pattern,
+        annotations = miso:::${params.pattern}_annotations,
         dirs_are_runs = T
     )
 
@@ -67,7 +112,7 @@ process trim {
 
     """
     #!/usr/bin/env Rscript
-    library(mbtools)
+    library(miso)
 
     qc <- readRDS("${qc}")
     manifest <- fread("${manifest}")
@@ -104,7 +149,7 @@ process denoise {
 
     """
     #!/usr/bin/env Rscript
-    library(mbtools)
+    library(miso)
 
     procced <- readRDS("${artifact}")
     procced[["files"]] <- procced[["files"]][procced[["passed"]][["preprocessed"]] > 0]
@@ -143,14 +188,13 @@ process tree {
     #!/usr/bin/env Rscript
 
     library(futile.logger)
-    library(mbtools)
+    library(miso)
 
     denoised <- readRDS("${denoised}")
 
     seqs <- denoised[["taxonomy"]][, "sequence"]
     alignments <- DECIPHER::AlignSeqs(
         Biostrings::DNAStringSet(seqs),
-        anchor = NA,
         processors = ${task.cpus}
     )
 
@@ -195,7 +239,7 @@ process tables {
 
     """
     #!/usr/bin/env Rscript
-    library(mbtools)
+    library(miso)
 
     denoised <- readRDS("${arti}")
     ids <- rownames(denoised[["feature_table"]])
