@@ -58,7 +58,7 @@ General options:
     --read_length [str]           The length of the reads.
     --forward-only [bool]         Run analysis only on forward reads.
     --threads [int]               The maximum number of threads a single process can use.
-                                This is not the same as the maximum number of total threads used.
+                                  This is not the same as the maximum number of total threads used.
     --pattern [str]               The file pattern for the FASTQ files. Options are illumina, sra, and simple.
 Reference DBs:
     --taxa_db [str]               Path to the default taxonomy database.
