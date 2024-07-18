@@ -31,3 +31,6 @@ dependencies:
   - r-zoo
   - bioconductor-apeglm
   - bioconductor-decipher
+  - r-rcppparallel
+  - r-xfun
+  - r-locfit

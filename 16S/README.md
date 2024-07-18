@@ -90,9 +90,9 @@ project/
                 | ...
         > step1
         > step2
-        > output1.csv
+        > asvs.csv
         > ...
-        > figure1.png
+        > qc.png
         > ...
 ```
 

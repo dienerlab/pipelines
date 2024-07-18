@@ -63,12 +63,15 @@ process quality_control {
     time "8h"
 
     output:
-    tuple path("manifest.csv"), path("qc.rds"), path("*.png")
+    tuple path("manifest.csv"), path("qc.rds"), path("qc.log"), path("*.png")
 
     """
     #!/usr/bin/env Rscript
     library(Biostrings)
     library(miso)
+    library(futile.logger)
+
+    flog.appender(appender.file("qc.log"))
 
     files <- find_read_files(
         "${params.data_dir}/raw",
@@ -108,11 +111,14 @@ process trim {
     tuple path(manifest), path(qc), path(pl)
 
     output:
-    tuple path("preprocessed"), path("preprocessed.rds")
+    tuple path("preprocessed"), path("preprocessed.rds"), path("trim.log")
 
     """
     #!/usr/bin/env Rscript
     library(miso)
+    library(futile.logger)
+
+    flog.appender(appender.file("trim.log"))
 
     qc <- readRDS("${qc}")
     manifest <- fread("${manifest}")
@@ -145,11 +151,14 @@ process denoise {
     tuple path(procced), path(artifact)
 
     output:
-    tuple path("read_stats.csv"), path("denoised.rds"), path("phyloseq.rds")
+    tuple path("read_stats.csv"), path("denoised.rds"), path("phyloseq.rds"), path("denoise.log")
 
     """
     #!/usr/bin/env Rscript
     library(miso)
+    library(futile.logger)
+
+    flog.appender(appender.file("denoise.log"))
 
     procced <- readRDS("${artifact}")
     procced[["files"]] <- procced[["files"]][procced[["passed"]][["preprocessed"]] > 0]
@@ -182,13 +191,15 @@ process tree {
     tuple path(stats), path(denoised), path(ps)
 
     output:
-    tuple path("asvs.tree"), path("phyloseq.rds")
+    tuple path("asvs.tree"), path("phyloseq.rds"), path("tree.log")
 
     """
     #!/usr/bin/env Rscript
 
     library(futile.logger)
     library(miso)
+
+    flog.appender(appender.file("tree.log"))
 
     denoised <- readRDS("${denoised}")
 
