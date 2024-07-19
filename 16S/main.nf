@@ -77,10 +77,12 @@ process quality_control {
     if (${params.forward_only ? "T" : "F"}) {
         files[, "reverse" := NULL]
         files <- files[!is.na(forward)]
+    } else if ("reverse" %in% names(files)) {
+        good <- !(is.na(files[["forward"]]) | is.na(files[["reverse"]]))
+        files <- files[good]
     } else {
-        files <- files[!(is.na(forward) | is.na(reverse))]
+        files <- files[!is.na(forward)]
     }
-
 
     fwrite(files, "manifest.csv")
 
