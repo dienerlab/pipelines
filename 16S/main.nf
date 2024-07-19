@@ -187,7 +187,7 @@ process tree {
     tuple path(stats), path(denoised), path(ps), path(log)
 
     output:
-    tuple path("asvs.tree"), path("phyloseq.rds"), path("tree.log")
+    tuple path("asvs.tree"), path("phyloseq_with_tree.rds"), path("tree.log")
 
     """
     #!/usr/bin/env Rscript
@@ -227,7 +227,7 @@ process tree {
     ps <- readRDS("${ps}")
     phy_tree(ps) <- tree
 
-    saveRDS(ps, "phyloseq.rds")
+    saveRDS(ps, "phyloseq_with_tree.rds")
     """
 }
 
