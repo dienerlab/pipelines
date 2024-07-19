@@ -250,13 +250,13 @@ process megahit {
     script:
     if (params.single_end)
         """
-        megahit -r ${reads} -o contigs -t ${task.cpus} -m 16e9 \
+        megahit -r ${reads} -o contigs -t ${task.cpus} -m ${MemoryUnit.of(task.memory).toBytes()} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
     else
         """
-        megahit -1 ${reads[0]} -2 ${reads[1]} -o contigs -t ${task.cpus} -m 0.4 \
+        megahit -1 ${reads[0]} -2 ${reads[1]} -o contigs -t ${task.cpus} -m ${MemoryUnit.of(task.memory).toBytes()} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
