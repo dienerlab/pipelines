@@ -64,7 +64,7 @@ process find_files {
     time "10 m"
 
     output:
-    path("manifest.csv")
+    path("manifest_autogen.csv")
 
     """
     #!/usr/bin/env Rscript
@@ -82,7 +82,7 @@ process find_files {
         stop("No files to process.")
     }
 
-    fwrite(files, "manifest.csv")
+    fwrite(files, "manifest_autogen.csv")
     """
 }
 
