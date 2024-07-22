@@ -96,7 +96,7 @@ process quality_control {
     path(manifest)
 
     output:
-    path("qc.rds"), path("*.png"), path("qc.log")
+    tuple path(manifest), path("qc.rds"), path("*.png"), path("qc.log")
 
     """
     #!/usr/bin/env Rscript
@@ -110,7 +110,7 @@ process quality_control {
 
     files <- fread("${manifest}")
     if (!file.exists(files[["forward"]][1])) {
-        flog.warning("Files do not seem to exist, looking in %s.", PREFIX)
+        flog.warn("Files do not seem to exist, looking in %s.", PREFIX)
         files[, "forward" := file.path(PREFIX, forward)]
         if ("reverse" %in% names(files)) {
             files[, "reverse" := file.path(PREFIX, `reverse`)]
@@ -304,7 +304,7 @@ process tables {
 }
 
 workflow {
-    if params.manifest {
+    if (params.manifest) {
         manifest = Channel.fromPath("${params.manifest}")
     } else {
         manifest = find_files()
