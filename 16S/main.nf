@@ -10,6 +10,7 @@ params.data_dir = "${launchDir}/data"
 params.taxa_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r214_genus.fa.gz"
 params.species_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r214_species.fa.gz"
 params.threads = 16
+params.manifest = null
 params.pattern = "illumina"
 
 def helpMessage() {
@@ -26,7 +27,12 @@ def helpMessage() {
       --forward-only [bool]         Run analysis only on forward reads.
       --threads [int]               The maximum number of threads a single process can use.
                                     This is not the same as the maximum number of total threads used.
+      --manifest [str]              A manifest file listing the files to be processed. Should be a CSV file with
+                                    columns "id", "forward", "reverse" (optional), and "run" (optional). Listing the
+                                    sample IDs and read files. If samples were sequenced in different runs indicate
+                                    this with the run column.
       --pattern [str]               The file pattern for the FASTQ files. Options are illumina, sra, and simple.
+                                    Only used if no manuscript was provided.
 
     Reference DBs:
       --taxa_db [str]               Path to the default taxonomy database.
@@ -51,14 +57,46 @@ if (params.help) {
     exit 0
 }
 
+process find_files {
+    publishDir "${params.data_dir}", mode: "copy", overwrite: true
+    cpus params.threads
+    memory "4 GB"
+    time "10 m"
+
+    output:
+    path("manifest.csv")
+
+    """
+    #!/usr/bin/env Rscript
+
+    library(miso)
+
+    files <- find_read_files(
+        "${params.data_dir}/raw",
+        format=file_formats[["${params.pattern}"]],
+        dirs_are_runs = T
+    )
+
+    if (nrow(files) == 0) {
+        flog.error("Could not find any read files matching the ${params.pattern} pattern.")
+        stop("No files to process.")
+    }
+
+    fwrite(files, "manifest.csv")
+    """
+}
+
 process quality_control {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
     cpus params.threads
     memory "32 GB"
     time "8h"
 
+    input:
+    path(manifest)
+
     output:
-    tuple path("manifest.csv"), path("qc.rds"), path("*.png"), path("qc.log")
+    path("qc.rds"), path("*.png"), path("qc.log")
 
     """
     #!/usr/bin/env Rscript
@@ -66,13 +104,18 @@ process quality_control {
     library(miso)
     library(futile.logger)
 
+    PREFIX = "${params.data_dir}/raw"
+
     flog.appender(appender.file("qc.log"))
 
-    files <- find_read_files(
-        "${params.data_dir}/raw",
-        format=file_formats[["${params.pattern}"]],
-        dirs_are_runs = T
-    )
+    files <- fread("${manifest}")
+    if (!file.exists(files[["forward"]][1])) {
+        flog.warning("Files do not seem to exist, looking in %s.", PREFIX)
+        files[, "forward" := file.path(PREFIX, forward)]
+        if ("reverse" %in% names(files)) {
+            files[, "reverse" := file.path(PREFIX, `reverse`)]
+        }
+    }
 
     if (${params.forward_only ? "T" : "F"}) {
         files[, "reverse" := NULL]
@@ -83,8 +126,6 @@ process quality_control {
     } else {
         files <- files[!is.na(forward)]
     }
-
-    fwrite(files, "manifest.csv")
 
     qc <- quality_control(files, min_score = 20)
     saveRDS(qc, "qc.rds")
@@ -263,6 +304,11 @@ process tables {
 }
 
 workflow {
-    quality_control | trim | denoise | tables
+    if params.manifest {
+        manifest = Channel.fromPath("${params.manifest}")
+    } else {
+        manifest = find_files()
+    }
+    manifest | quality_control | trim | denoise | tables
     denoise.output | tree
 }
