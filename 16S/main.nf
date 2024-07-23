@@ -131,7 +131,8 @@ process quality_control {
 
     # Check if all files are there
     if (nrow(bad) > 0) {
-        flog.error("Some of the files in the manifest are missing:")
+        flog.error("The following IDs have missing files: %s", paste(bad[, id], sep=","))
+        print("The following files do not exist at the specified location:")
         print(bad)
         stop("Can't continue with missing files :(")
     }
