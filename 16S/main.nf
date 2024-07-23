@@ -119,12 +119,21 @@ process quality_control {
 
     if (${params.forward_only ? "T" : "F"}) {
         files[, "reverse" := NULL]
-        files <- files[!is.na(forward)]
-    } else if ("reverse" %in% names(files)) {
+    }
+    if ("reverse" %in% names(files)) {
         good <- !(is.na(files[["forward"]]) | is.na(files[["reverse"]]))
+        bad <- files[!file.exists(forward) | !file.exists(`reverse`)]
         files <- files[good]
     } else {
         files <- files[!is.na(forward)]
+        bad <- files[!file.exists(forward)]
+    }
+
+    # Check if all files are there
+    if (nrow(bad) > 0) {
+        flog.error("Some of the files in the manifest are missing:")
+        print(bad)
+        stop("Can't continue with missing files :(")
     }
 
     qc <- quality_control(files, min_score = 20)
