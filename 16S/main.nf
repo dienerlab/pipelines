@@ -100,6 +100,9 @@ process quality_control {
 
     """
     #!/usr/bin/env Rscript
+
+    options(mc.cores = ${task.cpus})
+
     library(Biostrings)
     library(miso)
     library(futile.logger)
