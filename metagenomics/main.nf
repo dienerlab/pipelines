@@ -559,6 +559,7 @@ workflow {
             .set{raw}
         n = file("${params.data_dir}/${params.raw_data}/*.fastq.gz").size() / 2
     }
+    params.batchsize = min(n, params.batchsize)
 
     // Calculate db memory requirement
     if (params.kraken2_mem) {
