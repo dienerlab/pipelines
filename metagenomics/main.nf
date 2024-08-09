@@ -21,6 +21,7 @@ params.identity = 0.99
 params.threads = 12
 params.confidence = 0.3
 params.ranks = "D,P,G,S"
+params.batchsize = 50
 
 def db_size = null
 
@@ -108,10 +109,11 @@ process preprocess {
 
 
 process kraken {
-    cpus params.maxcpus
+    cpus params.threads
     memory db_size
-    time 2.h + ids.size() * 0.5.h
+    time { 2.h + ids.size() * 0.5.h }
     scratch false
+    publishDir "${params.data_dir}/kraken2"
 
     input:
     tuple val(ids), path(reads)
@@ -127,7 +129,7 @@ process kraken {
     from subprocess import run
 
     base_args = [
-        "kraken2", "--db", "${params.db}",
+        "kraken2", "--db", "${params.kraken2_db}",
         "--confidence", "${params.confidence}",
         "--threads", "${task.cpus}", "--gzip-compressed"
     ]
@@ -136,7 +138,7 @@ process kraken {
     reads = "${reads}".split()
 
     se = ${params.single_end ? "True" : "False"}
-    if (se}):
+    if se:
         fwd = reads
     else:
         fwd = reads[0::2]
@@ -152,8 +154,8 @@ process kraken {
             "--report", f"{idx}.tsv",
             "--memory-mapping", fwd[i]
         ]
-        if (se):
-            args += rev[i]
+        if not se:
+            args.append(rev[i])
         res = run(args)
         if res.returncode != 0:
             if os.path.exists(f"{idx}.k2"):
@@ -517,9 +519,9 @@ workflow {
 
     // Calculate db memory requirement
     if (params.kraken2_mem) {
-        db_size = MemoryUnit.of("${params.dbmem} GB")
+        db_size = MemoryUnit.of("${params.kraken2_mem} GB")
     } else {
-        db_size = MemoryUnit.of(file("${params.db}/hash.k2d").size()) + 6.GB
+        db_size = MemoryUnit.of(file("${params.kraken2_db}/hash.k2d").size()) + 6.GB
         log.info("Based on the hash size I am reserving ${db_size.toGiga()}GB of memory for Kraken2.")
     }
     // quality filtering
@@ -533,9 +535,11 @@ workflow {
         .map{it -> tuple it.collect{a -> a[0]}, it.collect{a -> a[1]}.flatten()}
     // run Kraken2
     kraken(batched)
-    reports = kraken.out.flatMap{tuple it[1].baseName.split(".tsv")[0], it[1]}
+    reports = kraken.out
+        .flatMap{it[1]}
+        .map{tuple it.baseName.split(".tsv")[0], it}
 
-    count_taxa(reports.out.combine(levels))
+    count_taxa(reports.combine(levels))
     count_taxa.out.map{s -> tuple(s[1], s[3])}
         .groupTuple()
         .set{merge_groups}
