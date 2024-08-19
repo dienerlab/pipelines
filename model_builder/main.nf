@@ -11,6 +11,7 @@ params.method = "carveme"
 params.threads = 12
 params.gapseq_bad_score = 100
 params.gapseq_good_score = 200
+params.min_reactions = 100
 params.simulate = false
 params.memoteformat = "json"
 params.db_name = "database"
@@ -128,7 +129,7 @@ process build_carveme {
 
 process build_gapseq {
   cpus 1
-  memory "2GB"
+  memory "1.6GB"
   publishDir "${params.data_dir}/gapseq_draft"
   time "10h"
 
@@ -138,20 +139,28 @@ process build_gapseq {
   tuple val(id), val(domain), path(assembly)
 
   output:
-  tuple val("${id}"), path("${id}-draft.RDS"), path("${id}-rxnWeights.RDS"), path("${id}-rxnXgenes.RDS"), path("${id}-all-Pathways.tbl")
+  tuple val("${id}"), path("${id}-draft.RDS"), path("${id}-rxnWeights.RDS"),
+        path("${id}-rxnXgenes.RDS"), path("${id}-all-Pathways.tbl"),
+        path("${id}-all-Reactions.tbl"), path("${id}-Transporter.tbl")
 
   """
-    gapseq find -O -p all -k -v 1 -t ${domain} ${assembly} > ${id}.log || true
+    GSTMP=\$(mktemp -d -t gapseq_XXXXXXXXXX)
+    trap "rm -rf \$GSTMP" EXIT
+
+    gapseq find -O -p all -T \$GSTMP -K 1 -v 1 -t ${domain} ${assembly} > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
-    gapseq find-transport -k -v 1 ${assembly} > ${id}.log || true
+    TMPDIR=\$GSTMP gapseq find-transport -K 1 -v 1 ${assembly} > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
+
+    (( \$(grep -c "good_blast" ${id}-all-Reactions.tbl) >= ${params.min_reactions} )) || exit 1
+    (( \$(wc -l < ${id}-Transporter.tbl) >= 4 )) || exit 1
 
     gapseq draft \
       -r ${id}-all-Reactions.tbl \
       -t ${id}-Transporter.tbl \
       -c ${assembly} \
-      -b ${domain == 'Archaea' ? 'archaea' : 'auto'} \
+      -b ${domain == 'Archaea' ? 'Archaea' : 'auto'} \
       -u ${params.gapseq_good_score} \
       -l ${params.gapseq_bad_score} \
       -p ${id}-all-Pathways.tbl
@@ -160,7 +169,7 @@ process build_gapseq {
 
 process gapfill_gapseq {
   cpus 1
-  memory "2GB"
+  memory "1GB"
   time "2h"
 
   errorStrategy "ignore"
@@ -168,7 +177,9 @@ process gapfill_gapseq {
   publishDir "${params.data_dir}/gapseq_models", mode: "copy", overwrite: true
 
   input:
-  tuple val(id), path(draft), path(weights), path(rxnXgenes), path(pathways)
+  tuple val(id), path(draft), path(weights),
+        path(rxnXgenes), path(pathways),
+        path(rxns), path(transporters)
 
   output:
   tuple val(id), path("${id}.xml.gz"), path("${id}.log")
@@ -190,7 +201,7 @@ process gapfill_gapseq {
 
 process check_model {
   cpus 1
-  memory "8GB"
+  memory "4GB"
   time "30 m"
   publishDir "${params.data_dir}/model_qualities", mode: "copy", overwrite: true
 
