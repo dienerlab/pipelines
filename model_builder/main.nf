@@ -15,6 +15,7 @@ params.min_reactions = 100
 params.simulate = false
 params.memoteformat = "json"
 params.db_name = "database"
+params.taxversion = "gtdb207"
 
 
 def helpMessage() {
@@ -323,14 +324,15 @@ process model_db {
   each path(genomes)
 
   output:
-  path("${params.db_name}_gtdb207_strain_1.zip")
+  path("${params.db_name}_${params.taxversion}_strain_1.zip")
 
   """
   #!/usr/bin/env python3
 
   import pandas as pd
   from glob import glob
-  from micom.workflows import build_database
+  from micom.workflows import build_database, workflow
+  from cobra.io import read_sbml_model
 
   if __name__ == "__main__":
     manifest = pd.read_csv("${genomes}")
@@ -340,10 +342,20 @@ process model_db {
     manifest["strain"] = manifest.id.str.replace("_", " ")
     manifest["file"] = manifest.id + ".xml.gz"
     manifest = manifest[manifest.file.isin(glob("*.xml.gz"))]
+    rates = workflow(
+      lambda f: (f, read_sbml_model(f).slim_optimize()),
+      threads=${task.cpus}
+    )
+    rates = pd.Series(dict(rates))
+    bad = manifest[rates[manifest.file].isnan() | (rates[manifest.file] < 1e-6)]
+    if len(bad) > 0:
+      print(f"The following {len(bad)} models can not grow: {', '.join(bad.id)}.")
+    manifest = manifest[~manifest.file.isin(bad.file)]
+    manifest["gapseq_growth_rate"] = rates[manifest.files]
 
     db = build_database(
       manifest,
-      "${params.db_name}_gtdb207_strain_1.zip",
+      "${params.db_name}_${params.taxversion}_strain_1.zip",
       rank="strain",
       threads=${params.threads}
     )
