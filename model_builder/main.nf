@@ -332,20 +332,21 @@ process model_db {
   from glob import glob
   from micom.workflows import build_database
 
-  manifest = pd.read_csv("${genomes}")
-  taxa = manifest.lineage.str.split(";", expand=True).iloc[:, 0:7]
-  taxa.columns = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
-  manifest = pd.concat([manifest, taxa], axis=1)
-  manifest["strain"] = manifest.id.str.replace("_", " ")
-  manifest["file"] = manifest.id + ".xml.gz"
-  manifest = manifest[manifest.file.isin(glob("*.xml.gz"))]
+  if __name__ == "__main__":
+    manifest = pd.read_csv("${genomes}")
+    taxa = manifest.lineage.str.split(";", expand=True).iloc[:, 0:7]
+    taxa.columns = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
+    manifest = pd.concat([manifest, taxa], axis=1)
+    manifest["strain"] = manifest.id.str.replace("_", " ")
+    manifest["file"] = manifest.id + ".xml.gz"
+    manifest = manifest[manifest.file.isin(glob("*.xml.gz"))]
 
-  db = build_database(
-    manifest,
-    "${params.db_name}_gtdb207_strain_1.zip",
-    rank="strain",
-    threads=${params.threads}
-  )
+    db = build_database(
+      manifest,
+      "${params.db_name}_gtdb207_strain_1.zip",
+      rank="strain",
+      threads=${params.threads}
+    )
   """
 
 }
