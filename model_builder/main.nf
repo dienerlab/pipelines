@@ -144,16 +144,17 @@ process build_gapseq {
         path("${id}-all-Reactions.tbl"), path("${id}-Transporter.tbl")
 
   """
-    trap "rm -rf ./tmp" EXIT
+    GSTMP=\$(mktemp -d -t gapseq_XXXXXXXXXX)
+    trap "rm -rf \$GSTMP" EXIT
 
-    gapseq find -O -p all -T ./tmp -K 1 -v 1 -t ${domain} ${assembly} > ${id}.log || true
+    gapseq find -O -p all -T \$GSTMP -K 1 -v 1 -t ${domain} ${assembly} > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
-    TMPDIR=./tmp gapseq find-transport -K 1 -v 1 ${assembly} > ${id}.log || true
+    TMPDIR=\$GSTMP gapseq find-transport -K 1 -v 1 ${assembly} > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
     (( \$(grep -c "good_blast" ${id}-all-Reactions.tbl) >= ${params.min_reactions} )) || exit 1
-    (( \$(wc -l ${id}-Transporter.tbl) >= 4 )) || exit 1
+    (( \$(wc -l < ${id}-Transporter.tbl) >= 4 )) || exit 1
 
     gapseq draft \
       -r ${id}-all-Reactions.tbl \
