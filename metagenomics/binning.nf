@@ -128,7 +128,7 @@ workflow {
 
     contig_align(assemblies.join(reads)) | coverage
     binned = metabat(assemblies.join(coverage.out))
-    all_bins = binned.out.map{it -> it[1]}.collect()
+    all_bins = binned.map{it -> it[1]}.collect()
     checkm(all_bins)
     gtdb_classify(all_bins)
 }
