@@ -2,15 +2,15 @@
 
 nextflow.enable.dsl = 2
 
-params {
-    data_dir = "${launchDir}/data"
-    single_end = false
-    min_contig_length = 5000
-    min_bin_size = 100000
-    gtdb = "${launchDir}/refs/gtdb"
-    checkm = "${launchDir}/refs/checkm2"
-    maxcpus = 12
-}
+
+params.data_dir = "${launchDir}/data"
+params.single_end = false
+params.min_contig_length = 5000
+params.min_bin_size = 100000
+params.gtdb = "${launchDir}/refs/gtdb"
+params.checkm = "${launchDir}/refs/checkm2"
+params.maxcpus = 12
+
 
 process contig_align {
     cpus 8
