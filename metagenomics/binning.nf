@@ -2,13 +2,15 @@
 
 nextflow.enable.dsl = 2
 
-params.data_dir = "${launchDir}/data"
-params.single_end = false
-params.min_contig_length = 5000
-params.gtdb = "${launchDir}/refs/gtdb"
-params.checkm = "${launchDir}/refs/checkm2"
-
-maxcpus = 24
+params {
+    data_dir = "${launchDir}/data"
+    single_end = false
+    min_contig_length = 5000
+    min_bin_size = 100000
+    gtdb = "${launchDir}/refs/gtdb"
+    checkm = "${launchDir}/refs/checkm2"
+    maxcpus = 12
+}
 
 process contig_align {
     cpus 8
@@ -59,15 +61,15 @@ process metabat {
 
     """
     metabat2 -i ${contigs} -a ${coverage} -o bins/${id}_ \
-        -t ${task.cpus} -m 2500 -s 100000
+        -t ${task.cpus} -m ${params.min_contig_length} -s 100000
     pigz -p ${task.cpus} bins/*.fa
     """
 }
 
 process checkm {
-    cpus params.threads
+    cpus params.maxcpus
     memory "32 GB"
-    time "4h"
+    time "2h"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
@@ -82,9 +84,9 @@ process checkm {
 }
 
 process gtdb_classify {
-    cpus params.threads
+    cpus params.maxcpus
     memory "64 GB"
-    time "24h"
+    time "8h"
 
     publishDir "${params.data_dir}"
 
@@ -129,6 +131,4 @@ workflow {
     all_bins = binned.out.map{it -> it[1]}.collect()
     checkm(all_bins)
     gtdb_classify(all_bins)
-
-    contig_classified = contig_taxonomy(filter_contigs(assembly), dbs)
 }
