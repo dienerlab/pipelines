@@ -115,11 +115,14 @@ workflow {
         Channel
             .fromFilePairs([
                 "${params.data_dir}/preprocessed/*_R{1,2}_001.fastq.gz",
-                "${params.data_dir}/preprocessed/*_{1,2}.fastq.gz"
+                "${params.data_dir}/preprocessed/*_{1,2}.fastq.gz",
+                "${params.data_dir}/preprocessed/*_R{1,2}.fastq.gz"
             ])
             .ifEmpty { error "Cannot find any read files in ${params.data_dir}!" }
             .set{reads}
     }
+
+    reads = reads.map{tuple it[0].replace("_filtered", ""), it[1]}
 
     Channel.
         fromPath("${params.data_dir}/assembled/contigs/*.fa")
