@@ -132,7 +132,7 @@ process build_gapseq {
   cpus 1
   memory "1.6GB"
   publishDir "${params.data_dir}/gapseq_draft"
-  time "10h"
+  time "12h"
 
   errorStrategy "ignore"
 
@@ -170,8 +170,8 @@ process build_gapseq {
 
 process gapfill_gapseq {
   cpus 1
-  memory "1GB"
-  time "2h"
+  memory "2GB"
+  time "4h"
 
   errorStrategy "ignore"
 
@@ -334,6 +334,9 @@ process model_db {
   from micom.workflows import build_database, workflow
   from cobra.io import read_sbml_model
 
+  def gr(f):
+    return (f, read_sbml_model(f).slim_optimize())
+
   if __name__ == "__main__":
     manifest = pd.read_csv("${genomes}")
     taxa = manifest.lineage.str.split(";", expand=True).iloc[:, 0:7]
@@ -343,11 +346,12 @@ process model_db {
     manifest["file"] = manifest.id + ".xml.gz"
     manifest = manifest[manifest.file.isin(glob("*.xml.gz"))]
     rates = workflow(
-      lambda f: (f, read_sbml_model(f).slim_optimize()),
+      gr,
+      manifest.file,
       threads=${task.cpus}
     )
     rates = pd.Series(dict(rates))
-    bad = manifest[rates[manifest.file].isnan() | (rates[manifest.file] < 1e-6)]
+    bad = manifest[rates[manifest.file].isna() | (rates[manifest.file] < 1e-6)]
     if len(bad) > 0:
       print(f"The following {len(bad)} models can not grow: {', '.join(bad.id)}.")
     manifest = manifest[~manifest.file.isin(bad.file)]
