@@ -1,0 +1,10 @@
+name: binchecks
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python
+  - nextflow>=24.04
+  - gtdbtk>=2.4.0
+  - checkm2
