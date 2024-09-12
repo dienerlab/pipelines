@@ -114,10 +114,13 @@ process dereplicate {
     cpus 1
     memory "500 MB"
     time "10m"
+
     input:
     path(report)
+
     output:
     path("checkm2_report.csv")
+
     """
     #!/usr/bin/env python
 
@@ -183,6 +186,6 @@ workflow {
     contig_align(assemblies.join(clean)) | coverage
     binned = metabat(assemblies.join(coverage.out))
     all_bins = binned.map{it -> it[1]}.collect()
-    checkm(all_bins)
-    dereplicate(checkm.out, all_bins) | gtdb_classify
+    all_bins | checkm | format_report
+    dereplicate(format_report.out, all_bins) | gtdb_classify
 }
