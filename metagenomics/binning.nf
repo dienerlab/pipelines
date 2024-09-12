@@ -100,7 +100,8 @@ process dereplicate {
     cpus params.maxcpus
     memory "32 GB"
     time "2h"
-    conda "${params.conda_path}/binchecks", mode: "copy", overwrite: true
+    conda "${params.conda_path}/binchecks"
+    publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
     path(bins)
@@ -192,7 +193,7 @@ process rename {
     import pandas as pd
 
     def first_name(s):
-        names = [s for s in s.split(";") if re.search("\\\\w__$", s) is None]
+        names = [s for s in s.split(";") if re.search("\\\\w__\$", s) is None]
         return names[-1].replace(" ", "")
 
     def extract(row):
