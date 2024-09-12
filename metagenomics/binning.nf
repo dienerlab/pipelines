@@ -143,7 +143,7 @@ process gtdb_classify {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
-    tuple path(report), path(bins)
+    tuple path(bins), path(figures)
 
     output:
     path("gtdb")
