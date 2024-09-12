@@ -9,7 +9,9 @@ params.min_contig_length = 5000
 params.min_bin_size = 100000
 params.gtdb = "${launchDir}/refs/gtdb"
 params.checkm = "${launchDir}/refs/checkm2/CheckM2_database/uniref100.KO.1.dmnd"
+params.ani = 0.99
 params.maxcpus = 12
+params.preset = "illumina"
 
 
 process contig_align {
@@ -66,17 +68,37 @@ process metabat {
     """
 }
 
-process checkm {
+process dereplicate {
+     cpus params.maxcpus
+     memory "16 GB"
+     time "8h"
+     publishDir "${params.data_dir}", mode: "copy", overwrite: true
+
+     input:
+     path(report)
+     path(raw)
+
+     output:
+     tuple path("bins/*.fa.gz"), path("bins/figures")
+
+    """
+    dRep dereplicate ./bins -g ${raw} \
+        --genomeInfo ${report} \
+        --S_algorithm skani --S_ani 0.99
+    mv bins/dereplicated_genomes/*.fa.gz bins/
+    """
+ }
+
+ process checkm {
     cpus params.maxcpus
     memory "32 GB"
     time "2h"
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
     path(bins)
 
     output:
-    path("checkm")
+    path("checkm/quality_report.tsv")
 
     """
     mkdir bins && mv ${bins} bins
@@ -86,17 +108,38 @@ process checkm {
         --extension .fa.gz \
         --input bins --output-directory checkm
     """
+ }
+
+ process format_report {
+    cpus 1
+    memory "500 MB"
+    time "10m"
+    input:
+    path(report)
+    output:
+    path("checkm2_report.csv")
+    """
+    #!/usr/bin/env python
+
+    import pandas as pd
+
+    report = pd.read_csv("${report}", sep="\\t").rename(columns={"Name": "genome"})
+    report.columns = report.columns.str.lower()
+    report.genomes = report.genomes + ".gz"
+    report.to_csv("checkm2_report.csv")
+    """
 }
+
 
 process gtdb_classify {
     cpus params.maxcpus
     memory "64 GB"
     time "8h"
 
-    publishDir "${params.data_dir}"
+    publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
-    path(bins)
+    tuple path(report), path(bins)
 
     output:
     path("gtdb")
@@ -136,11 +179,10 @@ workflow {
         fromPath("${params.data_dir}/assembled/contigs/*.contigs.fa")
         .map{row -> tuple(row.baseName.split("\\.contigs")[0], row)}
         .set{assemblies}
-    assemblies.view()
 
     contig_align(assemblies.join(clean)) | coverage
     binned = metabat(assemblies.join(coverage.out))
     all_bins = binned.map{it -> it[1]}.collect()
     checkm(all_bins)
-    gtdb_classify(all_bins)
+    dereplicate(checkm.out, all_bins) | gtdb_classify
 }
