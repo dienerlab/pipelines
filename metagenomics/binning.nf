@@ -140,14 +140,14 @@ process dereplicate {
     report = pd.read_csv("${report}", sep="\\t").rename(columns={"Name": "genome"})
     report.columns = report.columns.str.lower()
     report.genome = report.genome + ".gz"
-    report.to_csv("checkm2_report.csv")
+    report.to_csv("checkm2_report.csv", index=False)
     """
 }
 
 
 process gtdb_classify {
     cpus params.maxcpus
-    memory "64 GB"
+    memory "80 GB"
     time "8h"
     conda "${params.conda_path}/binchecks"
 
