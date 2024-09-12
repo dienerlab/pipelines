@@ -114,6 +114,7 @@ process dereplicate {
     cpus 1
     memory "500 MB"
     time "10m"
+    publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
     path(report)
