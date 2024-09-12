@@ -151,7 +151,7 @@ process gtdb_classify {
     """
     mkdir bins && mv ${bins} bins
     GTDBTK_DATA_PATH=${params.gtdb} gtdbtk classify_wf \
-        --genome_dir bins --prefix bins \
+        --genome_dir bins --prefix bins --extension fa.gz \
         --mash_db mash --extension fa.gz\
         --cpus ${task.cpus} --out_dir gtdb
     """
