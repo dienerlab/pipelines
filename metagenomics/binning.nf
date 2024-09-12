@@ -12,7 +12,7 @@ params.checkm = "${launchDir}/refs/checkm2/CheckM2_database/uniref100.KO.1.dmnd"
 params.ani = 0.99
 params.maxcpus = 12
 params.preset = "illumina"
-params.conda_path = "\$HOME/miniforge3/envs"
+params.conda_path = "$HOME/miniforge3/envs"
 params.manifest = null
 
 
@@ -170,7 +170,7 @@ process gtdb_classify {
 
 
 workflow {
-    if params.manifest == null {
+    if (params.manifest == null) {
         if (params.single_end) {
             Channel
                 .fromPath("${params.data_dir}/preprocessed/*.fastq.gz")
@@ -204,7 +204,7 @@ workflow {
         if (params.single_end) {
             rows.map{row -> tuple(
                     row.id,
-                    file("${launchDir}/row.contigs"),
+                    file("${launchDir}/${row.contigs}"),
                     file("${launchDir}/${row.forward}")
                     )
                 }
@@ -212,8 +212,8 @@ workflow {
         } else {
             rows.map{row -> tuple(
                     row.id,
-                    file("${launchDir}/row.contigs"),
-                    file(["${launchDir}/${row.forward}", "${launchDir}/${row.reverse}"])
+                    file("${launchDir}/${row.contigs}"),
+                    [file("${launchDir}/${row.forward}"), file("${launchDir}/${row.reverse}")]
                     )
                 }
                 .set{merged}
