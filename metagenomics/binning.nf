@@ -129,7 +129,7 @@ process dereplicate {
 
     report = pd.read_csv("${report}", sep="\\t").rename(columns={"Name": "genome"})
     report.columns = report.columns.str.lower()
-    report.genomes = report.genomes + ".gz"
+    report.genome = report.genome + ".gz"
     report.to_csv("checkm2_report.csv")
     """
 }
