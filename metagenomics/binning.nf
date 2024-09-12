@@ -29,7 +29,7 @@ process contig_align {
     tuple val(id), path("${id}.bam"), path("${id}.bai")
 
     script:
-    def mode = params.preset == "nanopore" ? "ava-ont" : "sr"
+    def mode = params.preset == "nanopore" ? "map-ont" : "sr"
     """
     minimap2 -ax ${mode} -N 100 -t ${task.cpus} ${contigs} ${reads} | \
     samtools sort -@${task.cpus} -o ${id}.bam && \
@@ -165,7 +165,7 @@ process gtdb_classify {
         --genome_dir bins --prefix bins --extension fa.gz \
         --mash_db mash --extension fa.gz\
         --cpus ${task.cpus} --out_dir gtdb
-    mv gtdb/bins.*.summary.tsv .
+    cp -L gtdb/bins.*.summary.tsv .
     """
 }
 
@@ -194,19 +194,21 @@ process rename {
 
     def first_name(s):
         names = [s for s in s.split(";") if re.search("\\\\w__\$", s) is None]
-        return names[-1].replace(" ", "")
+        return names[-1].replace(" ", "_")
 
     def extract(row):
-        with gzip.open(row["user_genome"], "rb") as gz:
+        with gzip.open(row["user_genome"] + ".fa.gz", "rb") as gz:
             with open(f"bins/{row['id']}.fna", "wb") as out:
                 shutil.copyfileobj(gz, out)
 
     report = []
-    for r in "${reports}.split()":
+    for r in "${reports}".split():
         report.append(pd.read_csv(r, sep="\\t"))
     report = pd.concat(report)
     report["id"] = report.classification.apply(first_name)
-    report["id"] = report["new_path"] + "_" + report["user_genome"]
+    report["id"] = report["id"] + "_" + report["user_genome"]
+    
+    os.mkdir("bins")
     report.apply(extract, axis=1)
     report.to_csv("gtdb_report.csv", index=False)
     """
