@@ -18,7 +18,7 @@ params.manifest = null
 
 process contig_align {
     cpus 8
-    memory "16 GB"
+    memory "8 GB"
     time "2h"
     conda "${params.conda_path}/metagenomics"
 
@@ -39,8 +39,8 @@ process contig_align {
 
 process coverage {
     cpus 1
-    memory "32 GB"
-    time "12h"
+    memory "1 GB"
+    time "30m"
     publishDir "${params.data_dir}"
     conda "${params.conda_path}/metagenomics"
 
@@ -56,8 +56,8 @@ process coverage {
 }
 
 process metabat {
-    cpus 8
-    memory "16 GB"
+    cpus 4
+    memory "2 GB"
     time "12h"
     conda "${params.conda_path}/metagenomics"
 
@@ -75,10 +75,9 @@ process metabat {
 }
 
 process dereplicate {
-    cpus params.maxcpus
-    memory "16 GB"
-    time "8h"
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
+    cpus 4
+    memory "8 GB"
+    time "2h"
     conda "${params.conda_path}/binchecks"
 
     input:
@@ -91,7 +90,8 @@ process dereplicate {
     """
     dRep dereplicate ./bins -g ${raw} \
         --genomeInfo ${report} \
-        --S_algorithm skani --S_ani 0.99
+        --S_algorithm skani --S_ani 0.99 \
+        --processors ${task.cpus}
     mv bins/dereplicated_genomes/*.fa.gz bins/
     """
  }
@@ -100,7 +100,7 @@ process dereplicate {
     cpus params.maxcpus
     memory "32 GB"
     time "2h"
-    conda "${params.conda_path}/binchecks"
+    conda "${params.conda_path}/binchecks", mode: "copy", overwrite: true
 
     input:
     path(bins)
@@ -120,7 +120,7 @@ process dereplicate {
 
  process format_report {
     cpus 1
-    memory "500 MB"
+    memory "250 MB"
     time "10m"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
     conda "${params.conda_path}/binchecks"
@@ -156,7 +156,7 @@ process gtdb_classify {
     tuple path(bins), path(figures)
 
     output:
-    path("gtdb")
+    path("bins.*.summary.tsv")
 
     """
     mkdir bins && mv ${bins} bins
@@ -164,8 +164,51 @@ process gtdb_classify {
         --genome_dir bins --prefix bins --extension fa.gz \
         --mash_db mash --extension fa.gz\
         --cpus ${task.cpus} --out_dir gtdb
+    mv gtdb/bins.*.summary.tsv .
     """
+}
 
+process rename {
+    cpus 1
+    memory "100 MB"
+    time "30 m"
+    conda "${params.conda_path}/binchecks"
+    publishDir "${params.data_dir}", mode: "copy", overwrite: true
+
+    input:
+    tuple path(bins), path(figures)
+    path(reports)
+
+    output:
+    tuple path("gtdb_report.csv"), path("bins/*.fna"), path(figures)
+
+    """
+    #!/usr/bin/env python
+
+    import gzip
+    import shutil
+    import os
+    import re
+    import pandas as pd
+
+    def first_name(s):
+        names = [s for s in s.split(";") if re.search("\\\\w__$", s) is None]
+        return names[-1].replace(" ", "")
+
+    def extract(row):
+        with gzip.open(row["user_genome"], "rb") as gz:
+            with open(f"bins/{row['id']}.fna", "wb") as out:
+                shutil.copyfileobj(gz, out)
+
+    report = []
+    for r in "${reports}.split()":
+        report.append(pd.read_csv(r, sep="\\t"))
+    report = pd.concat(report)
+    report["id"] = report.classification.apply(first_name)
+    report["id"] = report["new_path"] + "_" + report["user_genome"]
+    report.apply(extract, axis=1)
+    report.to_csv("gtdb_report.csv", index=False)
+    """
 }
 
 
@@ -225,4 +268,5 @@ workflow {
     all_bins = binned.map{it -> it[1]}.collect()
     all_bins | checkm | format_report
     dereplicate(format_report.out, all_bins) | gtdb_classify
+    rename(dereplicate.out, gtdb_classify.out)
 }
