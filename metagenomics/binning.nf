@@ -12,12 +12,15 @@ params.checkm = "${launchDir}/refs/checkm2/CheckM2_database/uniref100.KO.1.dmnd"
 params.ani = 0.99
 params.maxcpus = 12
 params.preset = "illumina"
+params.conda_path = "\$HOME/miniforge3/envs"
+params.manifest = null
 
 
 process contig_align {
     cpus 8
     memory "16 GB"
     time "2h"
+    conda "${params.conda_path}/metagenomics"
 
     input:
     tuple val(id), path(contigs), path(reads)
@@ -25,8 +28,10 @@ process contig_align {
     output:
     tuple val(id), path("${id}.bam"), path("${id}.bai")
 
+    script:
+    def mode = params.preset == "nanopore" ? "ava-ont" : "sr"
     """
-    minimap2 -ax sr -N 100 -t ${task.cpus} ${contigs} ${reads} | \
+    minimap2 -ax ${mode} -N 100 -t ${task.cpus} ${contigs} ${reads} | \
     samtools sort -@${task.cpus} -o ${id}.bam && \
     samtools index ${id}.bam ${id}.bai
     """
@@ -37,6 +42,7 @@ process coverage {
     memory "32 GB"
     time "12h"
     publishDir "${params.data_dir}"
+    conda "${params.conda_path}/metagenomics"
 
     input:
     tuple val(id), path(bam), path(bai)
@@ -53,10 +59,10 @@ process metabat {
     cpus 8
     memory "16 GB"
     time "12h"
-    publishDir "${params.data_dir}"
+    conda "${params.conda_path}/metagenomics"
 
     input:
-    tuple val(id), path(contigs), path(coverage)
+    tuple val(id), path(contigs), path(reads), path(coverage)
 
     output:
     tuple val(id), path("bins/${id}.*.fa.gz")
@@ -69,17 +75,18 @@ process metabat {
 }
 
 process dereplicate {
-     cpus params.maxcpus
-     memory "16 GB"
-     time "8h"
-     publishDir "${params.data_dir}", mode: "copy", overwrite: true
+    cpus params.maxcpus
+    memory "16 GB"
+    time "8h"
+    publishDir "${params.data_dir}", mode: "copy", overwrite: true
+    conda "${params.conda_path}/binchecks"
 
-     input:
-     path(report)
-     path(raw)
+    input:
+    path(report)
+    path(raw)
 
-     output:
-     tuple path("bins/*.fa.gz"), path("bins/figures")
+    output:
+    tuple path("bins/*.fa.gz"), path("bins/figures")
 
     """
     dRep dereplicate ./bins -g ${raw} \
@@ -93,6 +100,7 @@ process dereplicate {
     cpus params.maxcpus
     memory "32 GB"
     time "2h"
+    conda "${params.conda_path}/binchecks"
 
     input:
     path(bins)
@@ -115,6 +123,7 @@ process dereplicate {
     memory "500 MB"
     time "10m"
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
+    conda "${params.conda_path}/binchecks"
 
     input:
     path(report)
@@ -139,6 +148,7 @@ process gtdb_classify {
     cpus params.maxcpus
     memory "64 GB"
     time "8h"
+    conda "${params.conda_path}/binchecks"
 
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
@@ -160,32 +170,58 @@ process gtdb_classify {
 
 
 workflow {
-    if (params.single_end) {
-        Channel
-            .fromPath("${params.data_dir}/preprocessed/*.fastq.gz")
-            .map{row -> tuple(row.baseName, tuple(row))}
-            .set{reads}
+    if params.manifest == null {
+        if (params.single_end) {
+            Channel
+                .fromPath("${params.data_dir}/preprocessed/*.fastq.gz")
+                .map{row -> tuple(row.baseName, tuple(row))}
+                .set{reads}
+        } else {
+            Channel
+                .fromFilePairs([
+                    "${params.data_dir}/preprocessed/*_R{1,2}_001.fastq.gz",
+                    "${params.data_dir}/preprocessed/*_{1,2}.fastq.gz",
+                    "${params.data_dir}/preprocessed/*_R{1,2}.fastq.gz"
+                ])
+                .ifEmpty { error "Cannot find any read files in ${params.data_dir}!" }
+                .set{reads}
+        }
+
+        clean = reads.map{tuple it[0].replace("_filtered", ""), it[1]}
+
+        Channel.
+            fromPath("${params.data_dir}/assembled/contigs/*.contigs.fa")
+            .map{row -> tuple(row.baseName.split("\\.contigs")[0], row)}
+            .set{assemblies}
+
+        merged = assemblies.join(clean)
     } else {
+        log.info("Using manifest file ${params.manifest}.")
         Channel
-            .fromFilePairs([
-                "${params.data_dir}/preprocessed/*_R{1,2}_001.fastq.gz",
-                "${params.data_dir}/preprocessed/*_{1,2}.fastq.gz",
-                "${params.data_dir}/preprocessed/*_R{1,2}.fastq.gz"
-            ])
-            .ifEmpty { error "Cannot find any read files in ${params.data_dir}!" }
-            .set{reads}
+            .fromPath("${launchDir}/${params.manifest}")
+            .splitCsv(header: true)
+            .set{rows}
+        if (params.single_end) {
+            rows.map{row -> tuple(
+                    row.id,
+                    file("${launchDir}/row.contigs"),
+                    file("${launchDir}/${row.forward}")
+                    )
+                }
+                .set{merged}
+        } else {
+            rows.map{row -> tuple(
+                    row.id,
+                    file("${launchDir}/row.contigs"),
+                    file(["${launchDir}/${row.forward}", "${launchDir}/${row.reverse}"])
+                    )
+                }
+                .set{merged}
+        }
     }
 
-    clean = reads.map{tuple it[0].replace("_filtered", ""), it[1]}
-    clean.view()
-
-    Channel.
-        fromPath("${params.data_dir}/assembled/contigs/*.contigs.fa")
-        .map{row -> tuple(row.baseName.split("\\.contigs")[0], row)}
-        .set{assemblies}
-
-    contig_align(assemblies.join(clean)) | coverage
-    binned = metabat(assemblies.join(coverage.out))
+    merged | contig_align | coverage
+    binned = metabat(merged.join(coverage.out))
     all_bins = binned.map{it -> it[1]}.collect()
     all_bins | checkm | format_report
     dereplicate(format_report.out, all_bins) | gtdb_classify
