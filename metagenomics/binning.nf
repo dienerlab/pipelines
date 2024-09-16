@@ -115,7 +115,7 @@ process dereplicate {
     checkm2 predict \
         --threads ${task.cpus} \
         --database_path ${params.checkm} \
-        --extension .fa.gz \
+        --extension .fna \
         --input bins --output-directory checkm
     """
  }
@@ -140,7 +140,7 @@ process dereplicate {
 
     report = pd.read_csv("${report}", sep="\\t").rename(columns={"Name": "genome"})
     report.columns = report.columns.str.lower()
-    report.genome = report.genome + ".gz"
+    report.genome = report.genome + ".fna"
     report.to_csv("checkm2_report.csv", index=False)
     """
 }
@@ -208,7 +208,7 @@ process rename {
     report = pd.concat(report)
     report["id"] = report.classification.apply(first_name)
     report["id"] = report["id"] + "_" + report["user_genome"]
-    
+
     os.mkdir("bins")
     report.apply(extract, axis=1)
     report.to_csv("gtdb_report.csv", index=False)
@@ -270,9 +270,9 @@ workflow {
     merged | contig_align | coverage
     binned = metabat(merged.join(coverage.out))
     all_bins = binned.map{it -> it[1]}.collect()
-    all_bins | checkm | format_report
     all_bins | gtdb_classify
     rename(all_bins, gtdb_classify.out)
+    rename.out[1] | checkm | format_report
     dereplicate(format_report.out, rename.out)
 
 }
