@@ -272,7 +272,7 @@ workflow {
     all_bins = binned.map{it -> it[1]}.collect()
     all_bins | gtdb_classify
     rename(all_bins, gtdb_classify.out)
-    rename.out[1] | checkm | format_report
+    rename.out.map{it[1]} | checkm | format_report
     dereplicate(format_report.out, rename.out)
 
 }
