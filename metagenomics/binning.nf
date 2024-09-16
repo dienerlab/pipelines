@@ -79,20 +79,21 @@ process dereplicate {
     memory "8 GB"
     time "2h"
     conda "${params.conda_path}/binchecks"
+    publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
-    path(report)
-    path(raw)
+    path(checkm_report)
+    tuple path(gtdb_report), path(raw)
 
     output:
-    tuple path("bins/*.fa.gz"), path("bins/figures")
+    tuple path("dereplicated/*.fna"), path("dereplicated/figures")
 
     """
-    dRep dereplicate ./bins -g ${raw} \
-        --genomeInfo ${report} \
+    dRep dereplicate ./dereplicated -g ${raw} \
+        --genomeInfo ${checkm_report} \
         --S_algorithm skani --S_ani 0.99 \
         --processors ${task.cpus}
-    mv bins/dereplicated_genomes/*.fa.gz bins/
+    mv dereplicated/dereplicated_genomes/*.fa.gz dereplicated/
     """
  }
 
@@ -154,7 +155,7 @@ process gtdb_classify {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
-    tuple path(bins), path(figures)
+    tuple path(bins)
 
     output:
     path("bins.*.summary.tsv")
@@ -177,11 +178,11 @@ process rename {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
-    tuple path(bins), path(figures)
+    path(bins)
     path(reports)
 
     output:
-    tuple path("gtdb_report.csv"), path("bins/*.fna"), path(figures)
+    tuple path("gtdb_report.csv"), path("bins/*.fna")
 
     """
     #!/usr/bin/env python
@@ -270,6 +271,8 @@ workflow {
     binned = metabat(merged.join(coverage.out))
     all_bins = binned.map{it -> it[1]}.collect()
     all_bins | checkm | format_report
-    dereplicate(format_report.out, all_bins) | gtdb_classify
-    rename(dereplicate.out, gtdb_classify.out)
+    all_bins | gtdb_classify
+    rename(all_bins, gtdb_classify.out)
+    dereplicate(format_report.out, rename.out)
+
 }
