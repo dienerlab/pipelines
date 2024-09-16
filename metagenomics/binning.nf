@@ -93,7 +93,7 @@ process dereplicate {
         --genomeInfo ${checkm_report} \
         --S_algorithm skani --S_ani 0.99 \
         --processors ${task.cpus}
-    mv dereplicated/dereplicated_genomes/*.fa.gz dereplicated/
+    mv dereplicated/dereplicated_genomes/*.fna dereplicated/
     """
  }
 
