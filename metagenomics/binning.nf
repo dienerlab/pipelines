@@ -155,7 +155,7 @@ process gtdb_classify {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
-    tuple path(bins)
+    path(bins)
 
     output:
     path("bins.*.summary.tsv")
