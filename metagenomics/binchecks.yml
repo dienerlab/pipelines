@@ -8,3 +8,5 @@ dependencies:
   - nextflow>=24.04
   - gtdbtk>=2.4.0
   - checkm2
+  - skani
+  - drep
