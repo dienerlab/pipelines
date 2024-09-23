@@ -13,6 +13,7 @@
 1. Initialize the CARVEME DB if necessary
 2. Finding genes *de novo* [prodigal](https://github.com/hyattpd/Prodigal)
 3. Model construction using [CARVEME](https://carveme.readthedocs.io/)
+   or [GAPSEQ](https://github.com/jotech/gapseq)
 4. Model quality checks using [MEMOTE](https://memote.readthedocs.io/))
 
 For CARVEME use conda:
@@ -24,7 +25,7 @@ conda env create -f conda.yml
 For gapseq use singularity:
 
 ```bash
-nextflow run main.nf --method gapseq -with-singularity cdiener/gapseq:2024.03.7
+nextflow run main.nf --method gapseq -with-singularity cdiener/gapseq:latest
 ```
 
 Make sure that singularity runs with the `--no-home` option and map your data dir
