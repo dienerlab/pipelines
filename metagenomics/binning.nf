@@ -10,10 +10,52 @@ params.min_bin_size = 100000
 params.gtdb = "${launchDir}/refs/gtdb"
 params.checkm = "${launchDir}/refs/checkm2/CheckM2_database/uniref100.KO.1.dmnd"
 params.ani = 0.99
-params.maxcpus = 12
 params.preset = "illumina"
 params.conda_path = "$HOME/miniforge3/envs"
 params.manifest = null
+
+
+def helpMessage() {
+    log.info"""
+    ~~~ Diener Lab Binning workflow ~~~
+
+    Usage:
+    A run using all,default parameters can be started with:
+    > nextflow run binning.nf --resume
+
+    An example run would look like
+    > nextflow run binning.nf -resume \
+                              --conda_path $HOME/miniconda3/envs \
+                              --min_contig_length 5000 --ani 0.95
+
+    General options:
+      --data_dir [str]              The main data directory for the analysis (must contain `raw`).
+      --single_end [bool]           Whether the data is single-end sequencing data.
+      --preset [str]                What sequencing technology was used. Can be "illumina" or
+                                    "nanopore".
+      ---manifest [path]            Location of a manifest containing paths to contigs and reads.
+                                    This location is relative to the project directory.
+
+    Binning options:
+      --min_contig_length [int]     Minimum length of the contigs to include them.
+      --min_bin_size [int]          Miinimum length of the binned genome.
+
+    Dereplication options:
+      --ani [float]                 On what ANI to dereplicate the MAGs. The default is
+                                    adequate for strain level analyses.
+
+    Reference DBs:
+      --checkm [path]                Location of the checkM2 uniref DB.
+      --gtdb [path]                  Location of the GTDB-TK database.
+    """.stripIndent()
+}
+
+params.help = false
+// Show help message
+if (params.help) {
+    helpMessage()
+    exit 0
+}
 
 
 process contig_align {

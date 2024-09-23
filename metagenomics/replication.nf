@@ -6,7 +6,6 @@ params.data_dir = "${launchDir}/data"
 params.single_end = false
 params.min_reads = 5000
 params.IGG = "${launchDir}/refs/IGG_v1.0_split"
-params.threads = 12
 
 def helpMessage() {
     log.info"""
@@ -17,13 +16,11 @@ def helpMessage() {
     > nextflow run replication.nf --resume
 
     A run with all parametrs set would look like:
-    > nextflow run main.nf --data_dir=./data --single_end true --threads 12 --min_reads 2500 --IGG /refs/IGG
+    > nextflow run main.nf --data_dir=./data --single_end true --min_reads 2500 --IGG /refs/IGG
 
     General options:
       --data_dir [str]              The main data directory for the analysis (must contain `raw`).
       --single_end [bool]           Whether the data is single-end sequencing data.
-      --threads [int]               The maximum number of threads a single process can use.
-                                    This is not the same as the maximum number of total threads used.
 
     COPTR options:
       --min_reads [int]             Minimum number of reads for a genome to calculate PTRs.

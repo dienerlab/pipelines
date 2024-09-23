@@ -33,9 +33,10 @@ def helpMessage() {
     A run using all,default parameters can be started with:
     > nextflow run main.nf --resume
 
-    A run with all parametrs set would look like:
-    > nextflow run main.nf --data_dir=./data --single_end=false --refs=/my/references --single_end=false \\
-                           --trim_front=5 --min_length=50 --quality_threshold=20 --read_length=150 --threshold=10
+    An exampl erun could look like:
+    > nextflow run main.nf -with-conda /my/envs/metagenomics -resume \
+                            --data_dir=./data --single_end=false --refs=/my/references \
+                            --read_length=150
 
     General options:
       --data_dir [str]              The main data directory for the analysis (must contain `raw`).
@@ -59,6 +60,15 @@ def helpMessage() {
       --contig_length [int]         Minimum length of a contig.
       --identity [double]           Minimum average nucleotide identity.
       --overlap [double]            Minimum required overlap between contigs.
+
+    Taxonomic classification:
+      --batchsize [int]             The batch size for Kraken2 jobs. See documentation
+                                    for more info. Should be 1 on single machine setups
+                                    and much larger than one on HPC setups.
+      --kraken2_mem [int]           Maximum memory in GB to use for Kraken2. If not set
+                                    this will be determined automatically from the database.
+                                    So, only set this if you want to overwrite the automatic
+                                    detection.
     """.stripIndent()
 }
 
