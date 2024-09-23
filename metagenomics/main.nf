@@ -21,6 +21,7 @@ params.identity = 0.99
 params.threads = 12
 params.confidence = 0.3
 params.ranks = "D,P,G,S"
+params.batchsize = 50
 
 def db_size = null
 
@@ -106,34 +107,61 @@ process preprocess {
         """
 }
 
+
 process kraken {
-    cpus 4
+    cpus params.threads
     memory db_size
-    time "2h"
+    time { 2.h + ids.size() * 0.5.h }
+    scratch false
     publishDir "${params.data_dir}/kraken2"
 
     input:
-    tuple val(id), path(reads), path(json), path(html)
+    tuple val(ids), path(reads)
 
     output:
-    tuple val(id), path("${id}.k2"), path("${id}.tsv")
+    tuple path("*.k2"), path("*.tsv")
 
-    script:
-    if (params.single_end)
-        """
-        kraken2 --db ${params.kraken2_db} \
-            --confidence ${params.confidence} \
-            --threads ${task.cpus} --gzip-compressed --output ${id}.k2 \
-            --memory-mapping --report ${id}.tsv ${reads}
-        """
+    """
+    #!/usr/bin/env python
 
-    else
-        """
-        kraken2 --db ${params.kraken2_db} --paired \
-            --confidence ${params.confidence} \
-            --threads ${task.cpus} --gzip-compressed --output ${id}.k2 \
-            --memory-mapping --report ${id}.tsv  ${reads[0]} ${reads[1]}
-        """
+    import sys
+    import os
+    from subprocess import run
+
+    base_args = [
+        "kraken2", "--db", "${params.kraken2_db}",
+        "--confidence", "${params.confidence}",
+        "--threads", "${task.cpus}", "--gzip-compressed"
+    ]
+
+    ids = "${ids.join(' ')}".split()
+    reads = "${reads}".split()
+
+    se = ${params.single_end ? "True" : "False"}
+    if se:
+        fwd = reads
+    else:
+        fwd = reads[0::2]
+        rev = reads[1::2]
+        base_args += ["--paired"]
+        assert len(fwd) == len(rev)
+
+    assert len(ids) == len(fwd)
+
+    for i, idx in enumerate(ids):
+        args = base_args + [
+            "--output", f"{idx}.k2",
+            "--report", f"{idx}.tsv",
+            "--memory-mapping", fwd[i]
+        ]
+        if not se:
+            args.append(rev[i])
+        res = run(args)
+        if res.returncode != 0:
+            if os.path.exists(f"{idx}.k2"):
+                os.remove(f"{idx}.k2")
+            sys.exit(res.returncode)
+    """
 }
 
 process count_taxa {
@@ -142,7 +170,7 @@ process count_taxa {
     time "30m"
 
     input:
-    tuple val(id), path(kraken), path(report), val(lev)
+    tuple val(id), path(report), val(lev)
 
     output:
     tuple val(id), val(lev), path("${lev}/${id}.b2"), path("${lev}/${id}_bracken_mpa.tsv")
@@ -470,6 +498,7 @@ process annotate {
     """
 }
 
+
 workflow {
     // find files
     if (params.single_end) {
@@ -488,19 +517,29 @@ workflow {
             .set{raw}
     }
 
+    // Calculate db memory requirement
     if (params.kraken2_mem) {
         db_size = MemoryUnit.of("${params.kraken2_mem} GB")
     } else {
-        db_size = MemoryUnit.of(file("${params.kraken2_db}/hash.k2d").size())
+        db_size = MemoryUnit.of(file("${params.kraken2_db}/hash.k2d").size()) + 6.GB
         log.info("Based on the hash size I am reserving ${db_size.toGiga()}GB of memory for Kraken2.")
     }
-
     // quality filtering
     preprocess(raw)
 
     // quantify taxa abundances
-    kraken(preprocess.out)
-    count_taxa(kraken.out.combine(levels))
+
+    // buffer the samples into batches
+    batched = preprocess.out
+        .collate(params.batchsize)
+        .map{it -> tuple it.collect{a -> a[0]}, it.collect{a -> a[1]}.flatten()}
+    // run Kraken2
+    kraken(batched)
+    reports = kraken.out
+        .flatMap{it[1]}
+        .map{tuple it.baseName.split(".tsv")[0], it}
+
+    count_taxa(reports.combine(levels))
     count_taxa.out.map{s -> tuple(s[1], s[3])}
         .groupTuple()
         .set{merge_groups}

@@ -3,7 +3,7 @@
 **Feasible data:**
 
 - paired or single end metagenomic shotgun sequencing
-- decent depth (>10M reads per sample)
+- any depth
 
 ## Basic (functional) workflow
 
@@ -13,12 +13,14 @@
 
 1. Adapter and quality trimming with [fastp](https://github.com/OpenGene/fastp)
    *quality reports in HTML and JSON are provided for each file*
-2. Assembly with [MegaHit](https://github.com/voutcn/megahit)
-3. Finding genes *de novo* with [prodigal](https://github.com/hyattpd/Prodigal)
-4. Clustering of all genes
-5. Pufferfish mapping index creation (needed for next step)
-6. Gene quantification (mapping + counting) with [salmon](https://salmon.readthedocs.io/en/latest/salmon.html)
-7. Protein annotation using the [EGGNoG mapper](https://github.com/eggnogdb/eggnog-mapper)
+2. Read annotation with [Kraken2](https://github.com/DerrickWood/kraken2) with some custom HPC optimization
+3. Taxon counting using [Bracken](https://github.com/jenniferlu717/Bracken)
+4. Assembly with [MegaHit](https://github.com/voutcn/megahit)
+5. *De novo* gene prediction with [prodigal](https://github.com/hyattpd/Prodigal)
+6. Clustering of all genes on protein identity using [mmseqs2 linclust](https://github.com/soedinglab/MMseqs2)
+7. Pufferfish mapping index creation (needed for next step)
+8. Gene quantification (mapping + counting) with [salmon](https://salmon.readthedocs.io/en/latest/salmon.html)
+9. Protein annotation using the [EGGNoG mapper](https://github.com/eggnogdb/eggnog-mapper)
 
 Additional workflows can be run *after* the basic workflow has finished.
 
@@ -38,8 +40,8 @@ Additional workflows can be run *after* the basic workflow has finished.
 ### Steps:
 
 1. metagenomic binning with [Metabat2](https://bitbucket.org/berkeleylab/metabat/)
-2. assembly taxonomy assignment using [BAT](https://github.com/dutilh/CAT)
-3. quality assessment using [checkM](https://ecogenomics.github.io/CheckM/)
+2. assembly taxonomy assignment using [GTDB-TK](https://github.com/Ecogenomics/GTDBTk)
+3. quality assessment using [checkM2](https://ecogenomics.github.io/CheckM/)
 
 ### Setup
 
@@ -64,6 +66,7 @@ General options:
   --data_dir [str]              The main data directory for the analysis (must contain `raw`).
   --read_length [str]           The length of the reads.
   --single_end [bool]           Specifies that the input is single-end reads.
+  --batchsize                   The batchsize for Kraken2 processing. Each batch will share a database cache.
 Reference DBs:
   --refs [str]                  Folder in which to find references DBs.
   --eggnogg_refs [str]          Where to find EGGNOG references. Defaults to <refs>/eggnog.
@@ -75,3 +78,17 @@ Quality filter:
   --threshold [str]             Smallest abundance threshold (in reads) used by Kraken.
 ```
 
+### Some note on the batch processing
+
+The workflow uses a batched Kraken2 setup where several samples are matched against a
+cached version of the database which greatly reduces the load time for the Kraken2 database.
+In terms of performance the most efficient batch size equals the number of files.
+
+> [!NOTE]
+> All samples in a batch will fail together. So if one sample fails the entire batch will.
+> For single node systems (single server) the batchsize can be set to 1 and the database
+> will be cached server side.
+
+This will look more or less like this:
+
+<img src="../docs/mmap.webp" width="80%">
