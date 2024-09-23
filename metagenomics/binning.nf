@@ -33,7 +33,7 @@ def helpMessage() {
       --single_end [bool]           Whether the data is single-end sequencing data.
       --preset [str]                What sequencing technology was used. Can be "illumina" or
                                     "nanopore".
-      ---manifest [path]            Location of a manifest containing paths to contigs and reads.
+      --manifest [path]            Location of a manifest containing paths to contigs and reads.
                                     This location is relative to the project directory.
 
     Binning options:
