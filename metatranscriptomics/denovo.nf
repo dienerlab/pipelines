@@ -297,12 +297,13 @@ workflow {
     // find files
     if (params.single_end || (params.preset == "nanopore")) {
         Channel
-            .fromPath(
+            .fromPath([
                 "${params.data_dir}/raw/*.fastq.gz",
                 "${params.data_dir}/raw/*.fq.gz",
                 "${params.data_dir}/raw/*.fastq",
                 "${params.data_dir}/raw/*.fq"
-            )
+            ])
+            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/raw!" }
             .map{row -> tuple(row.baseName, tuple(row))}
             .set{raw}
     } else {
@@ -331,8 +332,8 @@ workflow {
     } else if (params.preset == "nanopore") {
         quantify = quantify_long_reads(preprocess.out, txns)
     }
-    merge_counts(quantify.out.collect())
+    merge_counts(quantify.collect())
 
     // quality overview
-    multiqc(preprocess.out.map{it[2]}.collect(), quantify.out.collect())
+    multiqc(preprocess.out.map{it[2]}.collect(), quantify.collect())
 }
