@@ -4,18 +4,18 @@ nextflow.enable.dsl = 2
 
 params.data_dir = "${launchDir}/data"
 params.raw_data = "raw"
-params.transcripts = "data/transcripts.fna.gz"
 params.eggnog_refs = "${launchDir}/refs/eggnog"
 
 params.single_end = false
 params.trim_front_fwd = 5
 params.trim_front_rev = 5
-params.min_length = 50
+params.min_length = 100
 params.quality_threshold = 20
 params.read_length = 150
 params.threads = 20
 params.identity = 0.99
 params.overlap = 0.8
+params.preset = "illumina"
 
 def helpMessage() {
     log.info"""
@@ -175,7 +175,7 @@ process index {
     """
 }
 
-process quantify {
+process quantify_short_reads {
     cpus 4
     memory "64 GB"
     time "2h"
@@ -198,6 +198,29 @@ process quantify {
         """
         salmon quant --meta -p ${task.cpus} -l A -i ${index} -1 ${reads[0]} -2 ${reads[1]} -o ${id} --validateMappings
         """
+}
+
+process quantify_long_reads {
+    cpus 4
+    memory "64 GB"
+    time "8 h"
+
+    publishDir "${projectDir}/data/salmon"
+
+    input:
+    tuple val(id), path(reads), path(json), path(html)
+    each path(transcripts)
+
+    output:
+    path("${id}")
+
+    """
+    minimap2 -ax map-ont -N 100 -t ${task.cpus} ${transcripts} ${reads} | \
+        samtools view -Sb > ${id}.bam
+    salmon quant --ont -p ${task.cpus} -t ${transcripts} -l U -a ${id.bam} -o ${id} && \
+        rm ${id}.bam
+    """
+
 }
 
 process merge_counts {
@@ -265,10 +288,15 @@ process annotate {
 
 workflow {
     // find files
-    if (params.single_end) {
+    if (params.single_end || (params.preset == "nanopore")) {
         Channel
-            .fromPath("${params.data_dir}/${params.raw_data}/*.fastq.gz")
-            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
+            .fromPath(
+                "${params.data_dir}/${params.raw_data}/*.fastq.gz",
+                "${params.data_dir}/${params.raw_data}/*.fq.gz",
+                "${params.data_dir}/${params.raw_data}/*.fastq",
+                "${params.data_dir}/${params.raw_data}/*.fq"
+            )
+            .map{row -> tuple(row.baseName.split("\\.f")[0], tuple(row))}
             .set{raw}
     } else {
         Channel
@@ -286,12 +314,16 @@ workflow {
     preprocess(raw) | assemble
 
     assemble.out.collect{it[1]} | cluster_transcripts | annotate
+    txns = cluster_transcripts.out.map{it[0]}
 
-    // build the Salmon index
-    cluster_transcripts.out.map{it[0]} | index
-
-    // Quantify the transcripts
-    quantify(preprocess.out, index.out)
+    if (params.preset == "illumina") {
+        // build the Salmon index
+        index(txns)
+        // Quantify the transcripts
+        quantify = quantify_short_reads(preprocess.out, index.out)
+    } else if (params.preset == "nanopore") {
+        quantify = quantify_long_reads(preprocess.out, txns)
+    }
     merge_counts(quantify.out.collect())
 
     // quality overview
