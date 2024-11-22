@@ -298,10 +298,10 @@ workflow {
     if (params.single_end || (params.preset == "nanopore")) {
         Channel
             .fromPath(
-                "${params.data_dir}/${params.raw_data}/*.fastq.gz",
-                "${params.data_dir}/${params.raw_data}/*.fq.gz",
-                "${params.data_dir}/${params.raw_data}/*.fastq",
-                "${params.data_dir}/${params.raw_data}/*.fq"
+                "${params.data_dir}/raw/*.fastq.gz",
+                "${params.data_dir}/raw/*.fq.gz",
+                "${params.data_dir}/raw/*.fastq",
+                "${params.data_dir}/raw/*.fq"
             )
             .map{row -> tuple(row.baseName, tuple(row))}
             .set{raw}
