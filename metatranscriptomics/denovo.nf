@@ -111,27 +111,34 @@ process multiqc {
 
 process assemble {
     cpus 4
-    memory "40 GB"
+    memory "64 GB"
     publishDir "${params.data_dir}/assembled"
 
     input:
     tuple val(id), path(reads), path(json), path(html)
 
     output:
-    tuple val(id), path("*.fna.gz")
+    tuple val(id), path("${id}_txs.fna.gz")
 
     script:
-    if (params.single_end)
+    if (params.single_end && params.preset == "illumina")
         """
         spades.py --rna -s ${reads} -o assembled -t ${task.cpus} -m ${task.memory.toGiga()}
         cp assembled/transcripts.fasta ${id}_txs.fna && rm -rf assembled
         pigz -p ${task.cpus} ${id}_txs.fna
         """
-    else
+    else if (!params.single_end && params.preset == "illumina")
         """
         spades.py --rna -1 ${reads[0]} -2 ${reads[1]} -o assembled -t ${task.cpus} -m ${task.memory.toGiga()}
         cp assembled/transcripts.fasta ${id}_txs.fna && rm -rf assembled
         pigz -p ${task.cpus} ${id}_txs.fna
+        """
+    else if (params.preset == "nanopore")
+        """
+        flye --nano-raw ${reads} -t ${task.cpus} \
+            --meta -o flye_assemblies
+        pigz -p ${task.cpus} flye_assemblies/assembly.fasta && \
+            mv flye_assemblies.fasta/assembly.fasta.gz ${id}_txs.fna.gz
         """
 }
 
