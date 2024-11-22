@@ -70,7 +70,7 @@ process preprocess {
     tuple val(id), path("${id}_filtered_R*.fastq.gz"), path("${id}_fastp.json"), path("${id}.html")
 
     script:
-    if (params.single_end)
+    if (params.single_end || params.preset == "nanopore")
         """
         fastp -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
             --json ${id}_fastp.json --html ${id}.html \
