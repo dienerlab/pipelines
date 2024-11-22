@@ -303,7 +303,7 @@ workflow {
                 "${params.data_dir}/${params.raw_data}/*.fastq",
                 "${params.data_dir}/${params.raw_data}/*.fq"
             )
-            .map{row -> tuple(row.baseName.split("\\.f")[0], tuple(row))}
+            .map{row -> tuple(row.baseName, tuple(row))}
             .set{raw}
     } else {
         Channel
