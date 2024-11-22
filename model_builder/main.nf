@@ -148,10 +148,10 @@ process build_gapseq {
     GSTMP=\$(mktemp -d -t gapseq_XXXXXXXXXX)
     trap "rm -rf \$GSTMP" EXIT
 
-    gapseq find -O -p all -T \$GSTMP -K 1 -v 1 -t ${domain} ${assembly} > ${id}.log || true
+    gapseq find -O -p all -T \$GSTMP -K 1 -v 1 -t ${domain} -b ${params.gapseq_good_score} ${assembly} > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
-    TMPDIR=\$GSTMP gapseq find-transport -K 1 -v 1 ${assembly} > ${id}.log || true
+    TMPDIR=\$GSTMP gapseq find-transport -K 1 -v 1 -b ${params.gapseq_good_score} ${assembly} > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
     (( \$(grep -c "good_blast" ${id}-all-Reactions.tbl) >= ${params.min_reactions} )) || exit 1
@@ -351,7 +351,8 @@ process model_db {
       threads=${task.cpus}
     )
     rates = pd.Series(dict(rates))
-    bad = manifest[rates[manifest.file].isna() | (rates[manifest.file] < 1e-6)]
+    bad = rates[manifest.file].isna() | (rates[manifest.file] < 1e-6)
+    bad = manifest[bad.values]
     if len(bad) > 0:
       print(f"The following {len(bad)} models can not grow: {', '.join(bad.id)}.")
     manifest = manifest[~manifest.file.isin(bad.file)]
