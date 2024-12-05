@@ -194,7 +194,7 @@ process gapfill_gapseq {
     """
   else
     """
-    gapseq medium -m ${draft} -p ${pathways} -o medium.csv
+    gapseq medium -m ${draft} -p ${pathways} -o medium.csv -c "cpd00007:0"
     gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} > ${id}.log
     gzip ${id}.xml
     """
@@ -356,7 +356,7 @@ process model_db {
     if len(bad) > 0:
       print(f"The following {len(bad)} models can not grow: {', '.join(bad.id)}.")
     manifest = manifest[~manifest.file.isin(bad.file)]
-    manifest["gapseq_growth_rate"] = rates[manifest.files]
+    manifest["gapseq_growth_rate"] = rates[manifest.file].values
 
     db = build_database(
       manifest,
