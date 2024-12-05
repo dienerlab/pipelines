@@ -4,18 +4,19 @@ nextflow.enable.dsl = 2
 
 params.genomes = "${launchDir}/data/genomes.csv"
 params.data_dir = "${launchDir}/data"
-params.media_db = null
-params.media = null
+params.media= null
 params.scale = 1
-params.method = "carveme"
+params.method = "gspseq"
 params.threads = 12
-params.gapseq_bad_score = 100
-params.gapseq_good_score = 200
+params.gapseq_bad_score = 50
+params.gapseq_good_score = 100
 params.min_reactions = 100
 params.simulate = false
 params.memoteformat = "json"
 params.db_name = "database"
-params.taxversion = "gtdb207"
+params.taxversion = "gtdb220"
+params.anaerobic = false
+params.growth = 0.01
 
 
 def helpMessage() {
@@ -27,16 +28,15 @@ def helpMessage() {
     > nextflow run main.nf --resume
 
     A run with all parametrs set would look like:
-    > nextflow run main.nf --data_dir=./data --media_db=media.tsv --media="LB,M9"
+    > nextflow run main.nf --data_dir=./data --method=gapseq --media=media.vsv
 
     General options:
       --data_dir [str]              The main data directory for the analysis (must contain `raw`).
       --method [str]                The algorithm to use. Either `carveme` or `gapseq`. `gapseq`
                                     requires docker or singularity.
     Growth Media:
-      --media_db                    A file containing growth media specification.
+      --media                        A file containing growth media specification.
                                     `*.tsv` for CARVEME and `*.csv` for gapseq.
-      --media                       Comma-separated list of media names to use. Only used for CARVEME.
     """.stripIndent()
 }
 
@@ -47,7 +47,7 @@ if (params.help) {
     exit 0
 }
 
-process init_db {
+process init_carveme {
   cpus 1
   publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
@@ -183,21 +183,54 @@ process gapfill_gapseq {
         path(rxns), path(transporters)
 
   output:
-  tuple val(id), path("${id}.xml.gz"), path("${id}.log")
+  tuple val(id), path("${id}.xml.gz")
 
   script:
   if (params.media_db)
     """
     cp ${launchDir}/${params.media_db} medium.csv
-    gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} > ${id}.log
+    gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} -k ${params.growth}
     gzip ${id}.xml
     """
   else
     """
-    gapseq medium -m ${draft} -p ${pathways} -o medium.csv -c "cpd00007:0"
-    gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} > ${id}.log
+    gapseq medium -m ${draft} -p ${pathways} -o medium.csv ${params.anerobic ? "-c cpd00007:0" : ""}
+    gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} -k ${params.growth}
     gzip ${id}.xml
     """
+}
+
+process merge_gapseq {
+  cpus 1
+  memory "4GB"
+  publishDir "${params.data_dir}", mode: "copy", overwrite: true
+
+  input:
+  tuple path(files)
+
+  output:
+  tuple path("pathways.csv"), path("reactions.csv"), path("transporters.csv")
+
+  """
+  #!/usr/bin/env python3
+
+  import pandas as pd
+  improt glob
+
+  files = {
+    "pathways": glob.glob("*-all-Pathways.tbl"),
+    "reactions": glob.glob("*-all-Reactions.tbl"),
+    "transporters": glob.glob("*-Transporter.tbl")
+  }
+  for what in ["pathways", "reactions", "transporters"]:
+    tables = []
+    for fi in files[what]:
+      id = fi.split("/")[-1].split("-")[0]
+      df = pd.read_csv(fi, sep="\\t")
+      df["sample_id"] = id
+      tables.append(df)
+    pd.concat(tables).to_csv(f"{what}.csv", index=False)
+  """
 }
 
 process check_model {
@@ -227,13 +260,13 @@ process check_model {
     """
 }
 
-process carveme_fba {
+process fba {
   cpus 1
   memory "2GB"
   time "1h"
 
   input:
-  tuple val(id), path(model), path(log)
+  tuple val(id), path(model)
 
   output:
   tuple val(id), path("${id}_exchanges.csv"), path("${id}_growth_rate.csv")
@@ -243,24 +276,21 @@ process carveme_fba {
 
   import cobra
   import pandas as pd
-  from carveme import project_dir
   from os import path
 
   model = cobra.io.read_sbml_model("${model}")
 
+  sep = '${params.method == "gapseq" ? "," : "\\t"}'
+  postfix = '${params.method == "gapseq" ? "_e0" : "_e"}'
+
   exids = [r.id for r in model.exchanges]
   if "${params.media}" != "null":
-    if "${params.media_db}" == "null":
-      media_df = pd.read_csv(
-        path.join(project_dir, "${model}", "input", "media_db.tsv"), sep="\\t")
-    else:
-      media_df = pd.read_csv("${params.media_db}", sep="\\t")
-    mname = "${params.media}".split(",")[0]
-    media_df = media_df[media_df.medium == mname]
+    media_df = pd.read_csv("${params.media}", sep=sep).rename(
+      columns={"maxFlux": "flux", "compounds": "compound"})
     if "flux" not in media_df.columns:
       media_df["flux"] = 0.1
     if "reaction" not in media_df.columns:
-      media_df["reaction"] = "EX_" + media_df["compound"] + "_e"
+      media_df["reaction"] = "EX_" + media_df["compound"] + postfix
     media_df.index = media_df.reaction
     model.medium = ${params.scale} * media_df.flux[media_df.index.isin(exids)]
 
@@ -381,18 +411,20 @@ workflow {
     find_genes(genomes)
     build_carveme(find_genes.out.combine(init_db.out))
     models = build_carveme.out
-
-    if (params.simulate) {
-      models | carveme_fba
-      exchanges = carveme_fba.out.map{it -> it[1]}.collect()
-      rates = carveme_fba.out.map{it -> it[2]}.collect()
-      summarize_fba(exchanges, rates)
-    }
   } else if (params.method == "gapseq") {
-    build_gapseq(genomes) | gapfill_gapseq
+    build_gapseq(genomes)
+    build_gapseq.out.collect{it -> tuple(it[4], it[5], it[6])} | merge_gapseq
+    gapfill_gapseq(build_gapseq.out)
     models = gapfill_gapseq.out
   } else {
     error "Method must be either `carveme` or `gapseq`."
+  }
+
+  if (params.simulate) {
+    models | fba
+    exchanges = fba.out.map{it -> it[1]}.collect()
+    rates = fba.out.map{it -> it[2]}.collect()
+    summarize_fba(exchanges, rates)
   }
 
   check_model(models)
