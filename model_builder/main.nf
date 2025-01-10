@@ -4,7 +4,7 @@ nextflow.enable.dsl = 2
 
 params.genomes = "${launchDir}/data/genomes.csv"
 params.data_dir = "${launchDir}/data"
-params.media= null
+params.medium= null
 params.scale = 1
 params.method = "gspseq"
 params.threads = 12
@@ -35,7 +35,7 @@ def helpMessage() {
       --method [str]                The algorithm to use. Either `carveme` or `gapseq`. `gapseq`
                                     requires docker or singularity.
     Growth Media:
-      --media                        A file containing growth media specification.
+      --medium                      A file containing growth media specification.
                                     `*.tsv` for CARVEME and `*.csv` for gapseq.
     """.stripIndent()
 }
@@ -105,18 +105,10 @@ process build_carveme {
   tuple val("${id}"), path("${id}.xml.gz")
 
   script:
-  if (params.media_db && params.media)
+  if (params.medium)
     """
     CPX_PARAM_THREADS=${task.cpus} OMP_NUM_THREADS=${task.cpus} \
-    carve ${genes_aa} -o ${id}.xml.gz --mediadb ${params.media_db} \
-          --gapfill ${params.media} \
-          --diamond-args "-p ${task.cpus} --more-sensitive --top 10" \
-          --fbc2 -v
-    """
-  else if (params.media)
-    """
-    CPX_PARAM_THREADS=${task.cpus} OMP_NUM_THREADS=${task.cpus} \
-    carve ${genes_aa} -o ${id}.xml.gz --gapfill ${params.media} \
+    carve ${genes_aa} -o ${id}.xml.gz --gapfill ${params.medium} \
           --diamond-args "-p ${task.cpus} --more-sensitive --top 10" \
           --fbc2 -v
     """
@@ -186,15 +178,15 @@ process gapfill_gapseq {
   tuple val(id), path("${id}.xml.gz")
 
   script:
-  if (params.media_db)
+  if (params.medium)
     """
-    cp ${launchDir}/${params.media_db} medium.csv
+    cp ${launchDir}/${params.medium_db} medium.csv
     gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} -k ${params.growth}
     gzip ${id}.xml
     """
   else
     """
-    gapseq medium -m ${draft} -p ${pathways} -o medium.csv ${params.anerobic ? "-c cpd00007:0" : ""}
+    gapseq medium -m ${draft} -p ${pathways} -o medium.csv ${params.anaerobic ? "-c cpd00007:0" : ""}
     gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} -k ${params.growth}
     gzip ${id}.xml
     """
@@ -284,8 +276,8 @@ process fba {
   postfix = '${params.method == "gapseq" ? "_e0" : "_e"}'
 
   exids = [r.id for r in model.exchanges]
-  if "${params.media}" != "null":
-    media_df = pd.read_csv("${params.media}", sep=sep).rename(
+  if "${params.medium}" != "null":
+    media_df = pd.read_csv("${params.medium}", sep=sep).rename(
       columns={"maxFlux": "flux", "compounds": "compound"})
     if "flux" not in media_df.columns:
       media_df["flux"] = 0.1
