@@ -102,7 +102,7 @@ process build_carveme {
   tuple val(id), path(genes_dna), path(genes_aa), path(db_info)
 
   output:
-  tuple val("${id}"), path("${id}.xml.gz"), path("${id}.log")
+  tuple val("${id}"), path("${id}.xml.gz")
 
   script:
   if (params.media_db && params.media)
@@ -111,20 +111,20 @@ process build_carveme {
     carve ${genes_aa} -o ${id}.xml.gz --mediadb ${params.media_db} \
           --gapfill ${params.media} \
           --diamond-args "-p ${task.cpus} --more-sensitive --top 10" \
-          --fbc2 -v > ${id}.log
+          --fbc2 -v
     """
   else if (params.media)
     """
     CPX_PARAM_THREADS=${task.cpus} OMP_NUM_THREADS=${task.cpus} \
     carve ${genes_aa} -o ${id}.xml.gz --gapfill ${params.media} \
           --diamond-args "-p ${task.cpus} --more-sensitive --top 10" \
-          --fbc2 -v > ${id}.log
+          --fbc2 -v
     """
   else
     """
     CPX_PARAM_THREADS=${task.cpus} OMP_NUM_THREADS=${task.cpus} \
     carve ${genes_aa} -o ${id}.xml.gz --diamond-args "-p ${task.cpus}" \
-      --fbc2 -v > ${id}.log
+      --fbc2 -v
     """
 }
 
@@ -206,7 +206,7 @@ process merge_gapseq {
   publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
   input:
-  tuple path(files)
+  path(files)
 
   output:
   tuple path("pathways.csv"), path("reactions.csv"), path("transporters.csv")
@@ -240,7 +240,7 @@ process check_model {
   publishDir "${params.data_dir}/model_qualities", mode: "copy", overwrite: true
 
   input:
-  tuple val(id), path(model), path(log)
+  tuple val(id), path(model)
 
   output:
   tuple val("${id}"), path("${id}.json.gz")
