@@ -162,11 +162,9 @@ process build_gapseq {
 process gapfill_gapseq {
   cpus 1
   memory {2.GB * task.attempt}
-  time {4.GB * task.attempt}
+  time {4.h * task.attempt}
   maxRetries 1
-
   errorStrategy "ignore"
-
   publishDir "${params.data_dir}/gapseq_models", mode: "copy", overwrite: true
 
   input:
