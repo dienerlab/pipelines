@@ -41,11 +41,6 @@ def helpMessage() {
 }
 
 params.help = false
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
-}
 
 process init_carveme {
   cpus 1
@@ -54,6 +49,7 @@ process init_carveme {
   output:
   path("db_stats.txt")
 
+  script:
   """
   #!/usr/bin/env python
 
@@ -86,6 +82,7 @@ process find_genes {
   output:
   tuple val("${id}"), path("${id}.ffn"), path("${id}.faa")
 
+  script:
   """
   prodigal -p single -i ${assembly} -o ${id}.gff -d ${id}.ffn \
            -a ${id}.faa
@@ -122,9 +119,10 @@ process build_carveme {
 
 process build_gapseq {
   cpus 1
-  memory "1.6GB"
+  memory {1.6.GB * task.attempt}
+  time {10.h * task.attempt}
+  maxRetries 1
   publishDir "${params.data_dir}/gapseq_draft"
-  time "12h"
 
   errorStrategy "ignore"
 
@@ -136,6 +134,7 @@ process build_gapseq {
         path("${id}-rxnXgenes.RDS"), path("${id}-all-Pathways.tbl"),
         path("${id}-all-Reactions.tbl"), path("${id}-Transporter.tbl")
 
+  script:
   """
     GSTMP=\$(mktemp -d -t gapseq_XXXXXXXXXX)
     trap "rm -rf \$GSTMP" EXIT
@@ -162,8 +161,9 @@ process build_gapseq {
 
 process gapfill_gapseq {
   cpus 1
-  memory "2GB"
-  time "4h"
+  memory {2.GB * task.attempt}
+  time {4.GB * task.attempt}
+  maxRetries 1
 
   errorStrategy "ignore"
 
@@ -194,8 +194,9 @@ process gapfill_gapseq {
 
 process merge_gapseq {
   cpus 1
-  memory "4GB"
+  memory "6GB"
   publishDir "${params.data_dir}", mode: "copy", overwrite: true
+  time "4h"
 
   input:
   path(files)
@@ -203,25 +204,37 @@ process merge_gapseq {
   output:
   tuple path("pathways.csv"), path("reactions.csv"), path("transporters.csv")
 
+  script:
   """
   #!/usr/bin/env python3
 
   import pandas as pd
-  improt glob
+  import glob
+
+  def read_gapseq(fi):
+    print(f"Reading file {fi}...")
+    df = pd.read_csv(fi, sep="\\t", comment="#")
+    if "bitscore" in df.columns:
+      df = df[df.bitscore > ${params.gapseq_bad_score}]
+    if "Prediction" in df.columns:
+      df = df[df.Prediction == "true"]
+    id = fi.split("/")[-1].split("-")[0]
+    df["sample_id"] = id
+    return df
+
 
   files = {
     "pathways": glob.glob("*-all-Pathways.tbl"),
     "reactions": glob.glob("*-all-Reactions.tbl"),
     "transporters": glob.glob("*-Transporter.tbl")
   }
-  for what in ["pathways", "reactions", "transporters"]:
+  for what in ["pathways", "transporters"]:
     tables = []
     for fi in files[what]:
-      id = fi.split("/")[-1].split("-")[0]
-      df = pd.read_csv(fi, sep="\\t")
-      df["sample_id"] = id
-      tables.append(df)
-    pd.concat(tables).to_csv(f"{what}.csv", index=False)
+      tables.append(read_gapseq(fi))
+    df = pd.concat(tables)
+    df.to_parquet(f"{what}.parquet", index=False)
+    del tables
   """
 }
 
@@ -263,6 +276,7 @@ process fba {
   output:
   tuple val(id), path("${id}_exchanges.csv"), path("${id}_growth_rate.csv")
 
+  script:
   """
   #!/usr/bin/env python3
 
@@ -318,6 +332,7 @@ process summarize_fba {
   output:
   tuple path("exchanges.csv"), path("growth_rates.csv")
 
+  script:
   """
   #!/usr/bin/env python3
 
@@ -348,6 +363,7 @@ process model_db {
   output:
   path("${params.db_name}_${params.taxversion}_strain_1.zip")
 
+  script:
   """
   #!/usr/bin/env python3
 
@@ -391,6 +407,12 @@ process model_db {
 }
 
 workflow {
+  // Show help message
+  if (params.help) {
+      helpMessage()
+      exit 0
+  }
+
   Channel
     .fromPath("${params.genomes}")
     .splitCsv(header: true)
@@ -399,9 +421,9 @@ workflow {
 
   def models = null
   if (params.method == "carveme") {
-    init_db()
+    init_carveme()
     find_genes(genomes)
-    build_carveme(find_genes.out.combine(init_db.out))
+    build_carveme(find_genes.out.combine(init_carveme.out))
     models = build_carveme.out
   } else if (params.method == "gapseq") {
     build_gapseq(genomes)
