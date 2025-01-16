@@ -12,6 +12,7 @@ params.gapseq_bad_score = 50
 params.gapseq_good_score = 100
 params.min_reactions = 100
 params.simulate = false
+params.check = true
 params.memoteformat = "json"
 params.db_name = "database"
 params.taxversion = "gtdb220"
@@ -439,7 +440,10 @@ workflow {
     summarize_fba(exchanges, rates)
   }
 
-  check_model(models)
+  if (params.check) {
+    check_model(models)
+  }
+
   models
     .map{it -> it[1]}
     .collect()
