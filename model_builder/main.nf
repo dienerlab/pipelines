@@ -6,7 +6,7 @@ params.genomes = "${launchDir}/data/genomes.csv"
 params.data_dir = "${launchDir}/data"
 params.medium= null
 params.scale = 1
-params.method = "gspseq"
+params.method = "gapseq"
 params.threads = 12
 params.gapseq_bad_score = 50
 params.gapseq_good_score = 100
@@ -231,7 +231,7 @@ process merge_gapseq {
     for fi in files[what]:
       tables.append(read_gapseq(fi))
     df = pd.concat(tables)
-    df.to_parquet(f"{what}.parquet", index=False)
+    df.to_parquet(f"{what}.csv.gz", index=False)
     del tables
   """
 }

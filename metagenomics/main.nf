@@ -33,7 +33,7 @@ def helpMessage() {
     A run using all,default parameters can be started with:
     > nextflow run main.nf --resume
 
-    An exampl erun could look like:
+    An example run could look like:
     > nextflow run main.nf -with-conda /my/envs/metagenomics -resume \
                             --data_dir=./data --single_end=false --refs=/my/references \
                             --read_length=150
