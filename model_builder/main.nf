@@ -124,7 +124,7 @@ process build_gapseq {
   maxRetries 1
   publishDir "${params.data_dir}/gapseq_draft"
 
-  errorStrategy "ignore"
+  errorStrategy { task.attempt < 2 ? "retry" : "ignore" }
 
   input:
   tuple val(id), val(domain), path(assembly)
@@ -164,7 +164,7 @@ process gapfill_gapseq {
   memory {2.GB * task.attempt}
   time {4.h * task.attempt}
   maxRetries 1
-  errorStrategy "ignore"
+  errorStrategy { task.attempt < 2 ? "retry" : "ignore" }
   publishDir "${params.data_dir}/gapseq_models", mode: "copy", overwrite: true
 
   input:
