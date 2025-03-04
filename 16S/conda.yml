@@ -34,3 +34,4 @@ dependencies:
   - r-rcppparallel
   - r-xfun
   - r-locfit
+  - r-rcurl

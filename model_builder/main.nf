@@ -201,7 +201,7 @@ process merge_gapseq {
   path(files)
 
   output:
-  tuple path("pathways.csv"), path("reactions.csv"), path("transporters.csv")
+  tuple path("pathways.csv.gz"), path("transporters.csv.gz")
 
   script:
   """
@@ -232,7 +232,7 @@ process merge_gapseq {
     for fi in files[what]:
       tables.append(read_gapseq(fi))
     df = pd.concat(tables)
-    df.to_parquet(f"{what}.csv.gz", index=False)
+    df.to_csv(f"{what}.csv.gz", index=False)
     del tables
   """
 }

@@ -7,8 +7,8 @@ params.merge = true
 params.min_overlap = 8
 params.forward_only = false
 params.data_dir = "${launchDir}/data"
-params.taxa_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r214_genus.fa.gz"
-params.species_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r214_species.fa.gz"
+params.taxa_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r220_genus.fa.gz"
+params.species_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r220_species.fa.gz"
 params.threads = 16
 params.manifest = null
 params.pattern = "illumina"
@@ -59,7 +59,7 @@ if (params.help) {
 
 process find_files {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
-    cpus params.threads
+    cpus 1
     memory "4 GB"
     time "10 m"
 
