@@ -1,0 +1,50 @@
+name: "🐛 Bug Report"
+description: Create a new ticket for a bug.
+title: "🐛 [BUG] - <title>"
+labels: [
+  "bug"
+]
+body:
+  - type: checkboxes
+    attributes:
+        label: Is the issue new and does it occur with the most recent version?
+        description: Please check if there is a similar issue and update the repo to the latest version.
+        options:
+            - label: I have searched the existing issues and there is no related issue
+              required: true
+            - label: I have updated my local copy to the newest version
+              required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: "Description"
+      description: Please enter a description of your issue
+      placeholder: Short and explicit description of the issue...
+    validations:
+      required: true
+  - type: textarea
+    id: reprod
+    attributes:
+      label: "Reproduction steps"
+      description: Please enter the run commands and steps to reproduce the issue
+      value: |
+        1. Setup the environment with
+
+        # commands here
+
+        2. Run the following commands:
+
+        # commands here
+
+        3. other steps...
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Logs"
+      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
+      render: bash
+    validations:
+      required: false

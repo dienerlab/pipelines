@@ -131,6 +131,7 @@ process kraken {
     output:
     tuple path("*.k2"), path("*.tsv")
 
+    script:
     """
     #!/usr/bin/env python
 

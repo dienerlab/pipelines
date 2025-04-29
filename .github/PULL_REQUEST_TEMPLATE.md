@@ -1,0 +1,3 @@
+- [ ] fixes issue #XYZ
+- [ ] added a description of the feature/fix
+- [ ] added an entry to the [release notes](../release-notes/)
