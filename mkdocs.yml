@@ -49,7 +49,7 @@ theme:
     - content.tabs.link
   icon:
     repo: fontawesome/brands/github
-    logo: material/route
+    logo: fontawesome/solid-route
 
 # Formatting options
 markdown_extensions:
