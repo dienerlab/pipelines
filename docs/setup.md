@@ -1,3 +1,5 @@
+# Setup
+
 We first recommend to clone the repository.
 
 === "git"
