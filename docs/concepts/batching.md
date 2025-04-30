@@ -10,7 +10,7 @@ in your memory overviews. As slong as this cached segment is not freed by the OS
 will be loaded instantaneously by all future Kraken2 jobs. This will lead immense performance
 gains.
 
-![Memory strategy for Kraken2](mmap.webp)
+![Memory strategy for Kraken2](mmap.png)
 
 This will usually not work for HPC systems as the jobs will be distributed across different
 machines with their own memory and RAM. This is why the Kraken2 steps here allow batching
@@ -20,5 +20,6 @@ So if one of the Kraken2 jobs crashes all output from the batch is lost. In prac
 will aim to make the batch as large as possible while still retaining some resilience
 for failing jobs.
 
-> [!NOTE]
-> For single machine setups the optimal batch size is always 1.
+!!! NOTE
+
+    For single machine setups (local runs) the optimal batch size is always 1.

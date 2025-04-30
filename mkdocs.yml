@@ -2,7 +2,7 @@ site_name: dienerlab pipelines
 site_author: Diener Lab
 
 repo_url: https://github.com/dienerlab/pipelines
-repo_name: dienerlab/template
+repo_name: dienerlab/pipelines
 
 nav:
   - Home: index.md
@@ -21,6 +21,8 @@ nav:
     - Replication Rates:
       - metagenomics: rep/mgx.md
       - strain-based: rep/strains.md
+  - Concepts:
+    - HPC batches: concepts/batching.md
   - Releases: release-notes.md
 
 theme:
@@ -50,6 +52,7 @@ theme:
   icon:
     repo: fontawesome/brands/github
     logo: fontawesome/solid/route
+    annotation: material/plus-circle
 
 # Formatting options
 markdown_extensions:
@@ -62,6 +65,16 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - footnotes
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path: "."
+  - pymdownx.superfences
+  - attr_list
+  - md_in_html
 
 plugins:
   - search:

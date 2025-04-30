@@ -51,11 +51,23 @@ def helpMessage() {
 }
 
 params.help = false
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
+
+workflow {
+    // Show help message
+    if (params.help) {
+        helpMessage()
+        exit 0
+    }
+
+    if (params.manifest) {
+        manifest = Channel.fromPath("${params.manifest}")
+    } else {
+        manifest = find_files()
+    }
+    manifest | quality_control | trim | denoise | tables
+    denoise.output | tree
 }
+
 
 process find_files {
     publishDir "${params.data_dir}", mode: "copy", overwrite: true
@@ -66,6 +78,7 @@ process find_files {
     output:
     path("manifest_autogen.csv")
 
+    script:
     """
     #!/usr/bin/env Rscript
 
@@ -98,6 +111,7 @@ process quality_control {
     output:
     tuple path(manifest), path("qc.rds"), path("*.png"), path("qc.log")
 
+    script:
     """
     #!/usr/bin/env Rscript
 
@@ -163,6 +177,7 @@ process trim {
     output:
     tuple path("preprocessed"), path("preprocessed.rds"), path("trim.log")
 
+    script:
     """
     #!/usr/bin/env Rscript
     library(miso)
@@ -203,6 +218,7 @@ process denoise {
     output:
     tuple path("read_stats.csv"), path("denoised.rds"), path("phyloseq.rds"), path("denoise.log")
 
+    script:
     """
     #!/usr/bin/env Rscript
     library(miso)
@@ -245,6 +261,7 @@ process tree {
     output:
     tuple path("asvs.tree"), path("phyloseq_with_tree.rds"), path("tree.log")
 
+    script:
     """
     #!/usr/bin/env Rscript
 
@@ -300,6 +317,7 @@ process tables {
     output:
     tuple path("asvs.csv"), path("taxonomy.csv")
 
+    script:
     """
     #!/usr/bin/env Rscript
     library(miso)
@@ -314,14 +332,4 @@ process tables {
     tax <- as.data.table(denoised[["taxonomy"]])[, "id" := ids]
     fwrite(tax, "taxonomy.csv")
     """
-}
-
-workflow {
-    if (params.manifest) {
-        manifest = Channel.fromPath("${params.manifest}")
-    } else {
-        manifest = find_files()
-    }
-    manifest | quality_control | trim | denoise | tables
-    denoise.output | tree
 }
