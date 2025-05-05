@@ -23,7 +23,22 @@ params.confidence = 0.3
 params.ranks = "D,P,G,S"
 params.batchsize = 50
 
-def db_size = null
+
+// Helper to calculate the required RAM for the Kraken2 database
+def estimate_db_size(hash, extra) {
+    def db_size = null
+
+    // Calculate db memory requirement
+    if (params.dbmem) {
+        db_size = MemoryUnit.of("${params.dbmem} GB")
+    } else {
+        db_size = MemoryUnit.of(file(hash).size()) + extra
+        log.info("Based on the hash size I am reserving ${db_size.toGiga()}GB of memory for Kraken2.")
+    }
+
+    return db_size
+}
+
 
 def helpMessage() {
     log.info"""
@@ -72,16 +87,80 @@ def helpMessage() {
     """.stripIndent()
 }
 
-params.help = false
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
-}
 
-Channel
+
+params.help = false
+
+
+workflow {
+    // Show help message
+    if (params.help) {
+        helpMessage()
+        exit 0
+    }
+
+    Channel
     .of(params.ranks.split(","))
     .set{levels}
+
+    // find files
+    if (params.single_end) {
+        Channel
+            .fromPath("${params.data_dir}/${params.raw_data}/*.fastq.gz")
+            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
+            .set{raw}
+    } else {
+        Channel
+            .fromFilePairs([
+                "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
+                "${params.data_dir}/raw/*_{1,2}.fastq.gz",
+                "${params.data_dir}/raw/*_R{1,2}.fastq.gz"
+            ])
+            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/${params.raw_data}!" }
+            .set{raw}
+    }
+
+    // quality filtering
+    preprocess(raw)
+
+    // quantify taxa abundances
+
+    // buffer the samples into batches
+    batched = preprocess.out
+        .collate(params.batchsize)
+        .map{it -> tuple it.collect{a -> a[0]}, it.collect{a -> a[1]}.flatten()}
+    // run Kraken2
+    kraken(batched)
+    reports = kraken.out
+        .flatMap{it[1]}
+        .map{tuple it.baseName.split(".tsv")[0], it}
+
+    count_taxa(reports.combine(levels))
+    count_taxa.out.map{s -> tuple(s[1], s[3])}
+        .groupTuple()
+        .set{merge_groups}
+    merge_taxonomy(merge_groups)
+
+    // quality overview
+    multiqc(merge_taxonomy.out.collect())
+
+    // assemble de novo
+    megahit(preprocess.out)
+
+    // find ORFs and count them
+    find_genes(megahit.out)
+    preprocess.out.combine(find_genes.out, by: 0) | map_and_count
+    merge_counts(map_and_count.out.collect())
+
+    // cluster proteins, collapse mapping counts, and annotate clusters
+    find_genes.out.map{sample -> sample[2]}.collect() | cluster_proteins
+    filter_transcripts(
+        find_genes.out.map{sample -> sample[1]}.collect(),
+        cluster_proteins.out.map{sample -> sample[0]}
+    )
+    cluster_counts(merge_counts.out, cluster_proteins.out)
+    annotate(cluster_proteins.out)
+}
 
 process preprocess {
     cpus 3
@@ -120,7 +199,7 @@ process preprocess {
 
 process kraken {
     cpus params.threads
-    memory db_size
+    memory { estimate_db_size("${params.kraken2_db}/hash.k2d", 16.GB) }
     time { 2.h + ids.size() * 0.5.h }
     scratch false
     publishDir "${params.data_dir}/kraken2"
@@ -186,6 +265,7 @@ process count_taxa {
     output:
     tuple val(id), val(lev), path("${lev}/${id}.b2"), path("${lev}/${id}_bracken_mpa.tsv")
 
+    script:
     """
     mkdir ${lev} && \
         sed 's/\\tR1\\t/\\tD\\t/g' ${report} > ${lev}/${report} && \
@@ -209,6 +289,7 @@ process merge_taxonomy {
     output:
     path("${lev}_counts.csv")
 
+    script:
     """
     #!/usr/bin/env python
 
@@ -218,7 +299,7 @@ process merge_taxonomy {
     import re
 
     ranks = pd.Series({
-        "d": "kingdom",
+        "d": "domain",
         "p": "phylum",
         "c": "class",
         "o": "order",
@@ -267,6 +348,7 @@ process multiqc {
     output:
     path("multiqc_report.html")
 
+    script:
     """
     multiqc ${params.data_dir}/preprocessed ${params.data_dir}/kraken2
     """
@@ -313,6 +395,7 @@ process find_genes {
     output:
     tuple val(id), path("${id}.ffn"), path("${id}.faa")
 
+    script:
     """
     if grep -q ">" ${assembly}; then
         prodigal -p meta -i ${assembly} -o ${id}.gff -d ${id}.ffn -a ${id}.faa
@@ -336,6 +419,7 @@ process cluster_proteins {
     output:
     tuple path("proteins.faa"), path("proteins_cluster.tsv")
 
+    script:
     """
     mmseqs easy-linclust ${proteins} proteins tmp \
         --cov-mode 0 -c ${params.overlap} \
@@ -359,6 +443,7 @@ process filter_transcripts {
     output:
     path("transcripts.fna.gz")
 
+    script:
     """
     #!/usr/bin/env python
 
@@ -422,6 +507,7 @@ process merge_counts {
     output:
     path("gene_counts.csv.gz")
 
+    script:
     """
     #!/usr/bin/env python
 
@@ -465,6 +551,7 @@ process cluster_counts {
     output:
     path("cluster_counts.csv.gz")
 
+    script:
     """
     #!/usr/bin/env python
 
@@ -500,6 +587,7 @@ process annotate {
     output:
     path("proteins.emapper.annotations")
 
+    script:
     """
     EMTMP=\$(mktemp -d -t eggnog_results_XXXXXXXXXX)
     emapper.py -i ${proteins} --output proteins -m diamond \
@@ -507,72 +595,4 @@ process annotate {
         --cpu ${task.cpus}
     rm -rf \$EMTMP
     """
-}
-
-
-workflow {
-    // find files
-    if (params.single_end) {
-        Channel
-            .fromPath("${params.data_dir}/${params.raw_data}/*.fastq.gz")
-            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
-            .set{raw}
-    } else {
-        Channel
-            .fromFilePairs([
-                "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
-                "${params.data_dir}/raw/*_{1,2}.fastq.gz",
-                "${params.data_dir}/raw/*_R{1,2}.fastq.gz"
-            ])
-            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/${params.raw_data}!" }
-            .set{raw}
-    }
-
-    // Calculate db memory requirement
-    if (params.kraken2_mem) {
-        db_size = MemoryUnit.of("${params.kraken2_mem} GB")
-    } else {
-        db_size = MemoryUnit.of(file("${params.kraken2_db}/hash.k2d").size()) + 6.GB
-        log.info("Based on the hash size I am reserving ${db_size.toGiga()}GB of memory for Kraken2.")
-    }
-    // quality filtering
-    preprocess(raw)
-
-    // quantify taxa abundances
-
-    // buffer the samples into batches
-    batched = preprocess.out
-        .collate(params.batchsize)
-        .map{it -> tuple it.collect{a -> a[0]}, it.collect{a -> a[1]}.flatten()}
-    // run Kraken2
-    kraken(batched)
-    reports = kraken.out
-        .flatMap{it[1]}
-        .map{tuple it.baseName.split(".tsv")[0], it}
-
-    count_taxa(reports.combine(levels))
-    count_taxa.out.map{s -> tuple(s[1], s[3])}
-        .groupTuple()
-        .set{merge_groups}
-    merge_taxonomy(merge_groups)
-
-    // quality overview
-    multiqc(merge_taxonomy.out.collect())
-
-    // assemble de novo
-    megahit(preprocess.out)
-
-    // find ORFs and count them
-    find_genes(megahit.out)
-    preprocess.out.combine(find_genes.out, by: 0) | map_and_count
-    merge_counts(map_and_count.out.collect())
-
-    // cluster proteins, collapse mapping counts, and annotate clusters
-    find_genes.out.map{sample -> sample[2]}.collect() | cluster_proteins
-    filter_transcripts(
-        find_genes.out.map{sample -> sample[1]}.collect(),
-        cluster_proteins.out.map{sample -> sample[0]}
-    )
-    cluster_counts(merge_counts.out, cluster_proteins.out)
-    annotate(cluster_proteins.out)
 }

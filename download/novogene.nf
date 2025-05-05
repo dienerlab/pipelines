@@ -1,10 +1,24 @@
+#!/usr/bin/env nextflow
+
 nextflow.enable.dsl=2
 
-params.runtable = "${launchDir}/data/links.txt"
+params.data_dir = "${launchDir}/data"
+params.runtable = "${params.data_dir}/links.txt"
+
+workflow {
+    Channel.fromPath(params.runtable)
+        .splitCsv()
+        .map{ row -> row[0] }
+        .filter{ s -> s=~/RawData.*\.fq\.gz$/ }
+        .set{runs}
+
+    runs | download
+}
+
 
 process download {
     cpus 6
-    publishDir "${launchDir}/data/raw", mode: 'copy'
+    publishDir "${params.data_dir}/raw", mode: 'copy'
 
     input:
     val(link)
@@ -12,17 +26,8 @@ process download {
     output:
     path("*.fq.gz")
 
+    script:
     """
     wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 4 ${link}
     """
-}
-
-workflow {
-    Channel.fromPath(params.runtable)
-        .splitCsv()
-        .map{ row -> row[0] }
-        .filter( s -> s=~/RawData.*\.fq\.gz$/ )
-        .set{runs}
-
-    runs | download
 }

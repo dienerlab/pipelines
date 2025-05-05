@@ -51,11 +51,58 @@ def helpMessage() {
 }
 
 params.help = false
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
+
+workflow {
+    // Show help message
+    if (params.help) {
+        helpMessage()
+        exit 0
+    }
+
+    // find files
+    if (params.single_end || (params.preset == "nanopore")) {
+        Channel
+            .fromPath([
+                "${params.data_dir}/raw/*.fastq.gz",
+                "${params.data_dir}/raw/*.fq.gz",
+                "${params.data_dir}/raw/*.fastq",
+                "${params.data_dir}/raw/*.fq"
+            ])
+            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/raw!" }
+            .map{row -> tuple(row.baseName, tuple(row))}
+            .set{raw}
+    } else {
+        Channel
+            .fromFilePairs([
+                "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
+                "${params.data_dir}/raw/*_{1,2}.fastq.gz",
+                "${params.data_dir}/raw/*_{1,2}.fq.gz",
+                "${params.data_dir}/raw/*_R{1,2}.fastq.gz"
+            ])
+            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/${params.raw_data}!" }
+            .set{raw}
+    }
+
+    // quality filtering
+    preprocess(raw) | assemble
+
+    assemble.out.collect{it[1]} | cluster_transcripts | annotate
+    txns = cluster_transcripts.out.map{it[0]}
+
+    if (params.preset == "illumina") {
+        // build the Salmon index
+        index(txns)
+        // Quantify the transcripts
+        quantify = quantify_short_reads(preprocess.out, index.out)
+    } else if (params.preset == "nanopore") {
+        quantify = quantify_long_reads(preprocess.out, txns)
+    }
+    merge_counts(quantify.collect())
+
+    // quality overview
+    multiqc(preprocess.out.map{it[2]}.collect(), quantify.collect())
 }
+
 
 process preprocess {
     cpus 3
@@ -104,6 +151,7 @@ process multiqc {
     output:
     path("multiqc_report.html")
 
+    script:
     """
     multiqc ${params.data_dir}/preprocessed ${params.data_dir}/salmon
     """
@@ -154,6 +202,7 @@ process cluster_transcripts {
     output:
     tuple path("txns.fna.gz"), path("txns_cluster.tsv")
 
+    script:
     """
     mmseqs easy-linclust ${txns} txns tmp \
         --cov-mode 0 -c ${params.overlap} \
@@ -169,7 +218,7 @@ process index {
     cpus params.threads
     memory "128 GB"
     time "8h"
-    publishDir "${projectDir}/data"
+    publishDir params.data_dir
 
     input:
     path(transcripts)
@@ -177,6 +226,7 @@ process index {
     output:
     path("salmon_index")
 
+    script:
     """
     salmon index -p ${task.cpus} -t ${transcripts} -i salmon_index
     """
@@ -187,7 +237,7 @@ process quantify_short_reads {
     memory "64 GB"
     time "2h"
 
-    publishDir "${projectDir}/data/salmon"
+    publishDir "${params.data_dir}/salmon"
 
     input:
     tuple val(id), path(reads), path(json), path(html)
@@ -212,7 +262,7 @@ process quantify_long_reads {
     memory "64 GB"
     time "8 h"
 
-    publishDir "${projectDir}/data/salmon"
+    publishDir "${params.data_dir}/salmon"
 
     input:
     tuple val(id), path(reads), path(json), path(html)
@@ -221,6 +271,7 @@ process quantify_long_reads {
     output:
     path("${id}")
 
+    script:
     """
     minimap2 -ax map-ont -N 100 -t ${task.cpus} ${transcripts} ${reads} | \
         samtools view -Sb > ${id}.bam
@@ -242,6 +293,7 @@ process merge_counts {
     output:
     path("transcript_counts.csv.gz")
 
+    script:
     """
     #!/usr/bin/env python
 
@@ -284,6 +336,7 @@ process annotate {
     output:
     path("txns.emapper.annotations")
 
+    script:
     """
     TMP=\$(mktemp -d -t eggnog_results_XXXXXXXXXX)
     emapper.py -i ${txns} --itype CDS --output txns -m diamond \
@@ -291,49 +344,4 @@ process annotate {
         --cpu ${task.cpus}
     rm -rf \$TMP
     """
-}
-
-workflow {
-    // find files
-    if (params.single_end || (params.preset == "nanopore")) {
-        Channel
-            .fromPath([
-                "${params.data_dir}/raw/*.fastq.gz",
-                "${params.data_dir}/raw/*.fq.gz",
-                "${params.data_dir}/raw/*.fastq",
-                "${params.data_dir}/raw/*.fq"
-            ])
-            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/raw!" }
-            .map{row -> tuple(row.baseName, tuple(row))}
-            .set{raw}
-    } else {
-        Channel
-            .fromFilePairs([
-                "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
-                "${params.data_dir}/raw/*_{1,2}.fastq.gz",
-                "${params.data_dir}/raw/*_{1,2}.fq.gz",
-                "${params.data_dir}/raw/*_R{1,2}.fastq.gz"
-            ])
-            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/${params.raw_data}!" }
-            .set{raw}
-    }
-
-    // quality filtering
-    preprocess(raw) | assemble
-
-    assemble.out.collect{it[1]} | cluster_transcripts | annotate
-    txns = cluster_transcripts.out.map{it[0]}
-
-    if (params.preset == "illumina") {
-        // build the Salmon index
-        index(txns)
-        // Quantify the transcripts
-        quantify = quantify_short_reads(preprocess.out, index.out)
-    } else if (params.preset == "nanopore") {
-        quantify = quantify_long_reads(preprocess.out, txns)
-    }
-    merge_counts(quantify.collect())
-
-    // quality overview
-    multiqc(preprocess.out.map{it[2]}.collect(), quantify.collect())
 }

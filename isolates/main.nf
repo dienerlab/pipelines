@@ -2,7 +2,7 @@
 
 nextflow.enable.dsl = 2
 
-params.data = "data"
+params.out = "${launchDir}/data"
 params.read_length = 150
 params.single_end = false
 params.min_contig_len = 1000
@@ -42,16 +42,48 @@ def helpMessage() {
 }
 
 params.help = false
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
+
+workflow {
+    // Show help message
+    if (params.help) {
+        helpMessage()
+        exit 0
+    }
+
+    // find files
+    if (params.single_end) {
+        Channel
+            .fromPath("${params.out}/raw/*.fastq.gz")
+            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
+            .set{raw}
+    } else {
+        Channel
+            .fromFilePairs([
+                "${params.out}/raw/*_R{1,2}_001.fastq.gz",
+                "${params.out}/raw/*_{1,2}.fastq.gz",
+                "${params.out}/raw/*_R{1,2}.fastq.gz"
+            ])
+            .ifEmpty { error "Cannot find any read files in ${params.out}/raw!" }
+            .set{raw}
+    }
+
+    raw | preprocess | megahit
+    multiqc(preprocess.out.collect())
+
+    megahit.out
+        .map{it -> it[1]}
+        .filter{it.size() > 0}
+        .collect()
+        .set{assemblies}
+    assemblies | checkm
+    assemblies| classify | tree
 }
+
 
 process preprocess {
     cpus 4
     memory "4 GB"
-    publishDir "${launchDir}/${params.data}/preprocessed"
+    publishDir "${params.out}/preprocessed"
 
     input:
     tuple val(id), path(reads)
@@ -83,7 +115,7 @@ process preprocess {
 process megahit {
     cpus 4
     memory "32 GB"
-    publishDir "${launchDir}/${params.data}/assemblies", mode: "copy", overwrite: true
+    publishDir "${params.out}/assemblies", mode: "copy", overwrite: true
 
     input:
     tuple val(id), path(reads), path(json), path(report)
@@ -111,7 +143,7 @@ process megahit {
 process multiqc {
     cpus 1
     memory "8 GB"
-    publishDir "${launchDir}/${params.data}", mode: "copy", overwrite: true
+    publishDir "${params.out}", mode: "copy", overwrite: true
 
     input:
     val(preprocess)
@@ -119,15 +151,16 @@ process multiqc {
     output:
     path("multiqc_report.html")
 
+    script:
     """
-    multiqc ${launchDir}/data/preprocessed
+    multiqc *.json
     """
 }
 
 process classify {
     cpus params.threads
     memory "64 GB"
-    publishDir "${launchDir}/${params.data}", mode: "copy", overwrite: true
+    publishDir params.out, mode: "copy", overwrite: true
 
     input:
     path(assemblies)
@@ -135,6 +168,7 @@ process classify {
     output:
     path("gtdb")
 
+    script:
     """
     mkdir assemblies && mv *.asm1.fna assemblies
     GTDBTK_DATA_PATH=${params.gtdb} gtdbtk classify_wf \
@@ -146,7 +180,7 @@ process classify {
 process tree {
     cpus params.threads
     memory "64 GB"
-    publishDir "${launchDir}/${params.data}", mode: "copy", overwrite: true
+    publishDir params.out, mode: "copy", overwrite: true
 
     input:
     path(gtdb)
@@ -154,6 +188,7 @@ process tree {
     output:
     path("isolates.nwk")
 
+    script:
     """
     gunzip -k ${gtdb}/align/assemblies.bac120.user_msa.fasta.gz && \
         mv ${gtdb}/align/assemblies.bac120.user_msa.fasta msa.fna
@@ -166,7 +201,7 @@ process tree {
 process checkm {
     cpus params.threads
     memory "64 GB"
-    publishDir "${launchDir}/${params.data}", mode: "copy", overwrite: true
+    publishDir params.out, mode: "copy", overwrite: true
 
     input:
     path(assemblies)
@@ -174,6 +209,7 @@ process checkm {
     output:
     path("checkm")
 
+    script:
     """
     checkm2 predict \
         --database_path ${params.checkm2} \
@@ -181,35 +217,4 @@ process checkm {
         --input ${assemblies} \
         --output-directory checkm
     """
-}
-
-workflow {
-    data_dir = "${launchDir}/${params.data}"
-    // find files
-    if (params.single_end) {
-        Channel
-            .fromPath("${data_dir}/raw/*.fastq.gz")
-            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
-            .set{raw}
-    } else {
-        Channel
-            .fromFilePairs([
-                "${data_dir}/raw/*_R{1,2}_001.fastq.gz",
-                "${data_dir}/raw/*_{1,2}.fastq.gz",
-                "${data_dir}/raw/*_R{1,2}.fastq.gz"
-            ])
-            .ifEmpty { error "Cannot find any read files in ${data_dir}/raw!" }
-            .set{raw}
-    }
-
-    raw | preprocess | megahit
-    multiqc(preprocess.out.collect())
-
-    megahit.out
-        .map{it -> it[1]}
-        .filter{it.size() > 0}
-        .collect()
-        .set{assemblies}
-    assemblies | checkm
-    assemblies| classify | tree
 }

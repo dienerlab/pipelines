@@ -1,5 +1,7 @@
+#!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
+params.out = "${launchDir}/data"
 params.reference = "reference.fna"
 params.decoy = "decoy.fna"
 params.single_end = false
@@ -38,199 +40,15 @@ def helpMessage() {
 }
 
 params.help = false
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
-}
-
-process preprocess {
-    cpus 3
-    memory "4GB"
-    time "30m"
-    publishDir "${launchDir}/data/preprocessed"
-
-    input:
-    tuple val(id), path(reads)
-
-    output:
-    tuple val(id), path("${id}_filtered_R*.fastq.gz"), path("${id}_fastp.json"), path("${id}.html")
-
-    script:
-    if (params.single_end)
-        """
-        fastp -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
-            --json ${id}_fastp.json --html ${id}.html \
-            --trim_front1 ${params.trim_front} -l ${params.min_length} \
-            -3 -M ${params.quality_threshold} -r -w ${task.cpus}
-        """
-
-    else
-        """
-        fastp -i ${reads[0]} -I ${reads[1]} \
-            -o ${id}_filtered_R1.fastq.gz -O ${id}_filtered_R2.fastq.gz\
-            --json ${id}_fastp.json --html ${id}.html \
-            --trim_front1 ${params.trim_front} -l ${params.min_length} \
-            -3 -M ${params.quality_threshold} -r -w ${task.cpus}
-        """
-}
-
-process build_index {
-    cpus params.threads
-    memory "16 GB"
-    time "2h"
-    publishDir "${launchDir}/data/"
-
-    input:
-    path(ref)
-    path(decoy)
-
-    output:
-    path("reference_index")
-
-    """
-    mkdir genomes && cp ${ref} ${decoy} genomes
-    mkdir reference_index
-    coptr index --bt2-threads ${task.cpus} genomes reference_index/index
-    """
-}
-
-process map_reads {
-    cpus 3
-    memory "16 GB"
-    time "3h"
-    publishDir "${launchDir}/data/mapped"
-
-    input:
-    tuple val(id), path(reads), path(report), path(html)
-    each path(index)
-
-    output:
-    tuple val(id), path("${id}.bam")
-
-    script:
-    if (params.single_end)
-        """
-      mkdir files bam
-      (cd files && ln -s ../${reads[0]} reads_1.fastq.gz)
-      coptr map --threads ${task.cpus} ${index}/index files bam
-      mv bam/*.bam ${id}.bam
-      """
-    else
-      """
-      mkdir files bam
-      (cd files && ln -s ../${reads[0]} reads_1.fastq.gz && ln -s ../${reads[1]} reads_2.fastq.gz)
-      coptr map --threads ${task.cpus} --paired ${index}/index files bam
-      mv bam/*.bam ${id}.bam
-      """
-}
-
-process multiqc {
-    cpus 1
-    memory "8GB"
-    time "1h"
-    publishDir "${launchDir}/data", mode: "copy", overwrite: true
-
-    input:
-    path(files)
-
-    output:
-    path("multiqc_report.html")
-
-    """
-    multiqc .
-    """
-}
-
-process alignment_stats {
-  cpus 1
-  memory "4 GB"
-  time "1h"
-  publishDir "${launchDir}/data/stats"
-
-  input:
-  tuple val(id), path(bam)
-
-  output:
-  path("${id}.sts")
-
-  """
-  samtools stats ${bam} > ${id}.sts
-  """
-
-}
-
-process extract_coverage {
-  cpus 1
-  memory "16 GB"
-  time "24h"
-  publishDir "${launchDir}/data"
-
-  input:
-  tuple val(id), path(bam)
-
-  output:
-  path("coverage/*.cm.pkl")
-
-  """
-  mkdir coverage
-  coptr extract . coverage
-  """
-}
-
-process estimate_ptr {
-  cpus 1
-  memory "16GB"
-  time "12h"
-  publishDir "${launchDir}/data",  mode: "copy", overwrite: true
-
-  input:
-  path(coverage)
-
-  output:
-  path("rates.csv")
-
-  """
-  coptr estimate \\
-    --min-reads ${params.minreads} \\
-    --min-cov ${params.mincov} \\
-    --min-samples ${params.minsamples} . rates.csv
-  """
-}
-
-process count_reads {
-  cpus 1
-  memory "16 GB"
-  time "1h"
-  publishDir "${launchDir}/data",  mode: "copy", overwrite: true
-
-  input:
-  path(coverage)
-
-  output:
-  path("reference_counts.csv")
-
-  """
-  #!/usr/bin/env python
-
-  import pickle
-  import pandas as pd
-
-  files = "${coverage}".split()
-  counts = []
-  for f in files:
-    print(f"Processing coverage profile {f}...")
-    cov = pickle.load(open(f, "rb"))
-    c = pd.Series({id: c.count_reads() for id, c in cov.items()})
-    c["sample_id"] = f.split(".cm.pkl")[0]
-    counts.append(c)
-  counts = pd.DataFrame.from_records(counts)
-  counts.to_csv("reference_counts.csv", index=False)
-  """
-}
 
 workflow {
-// find files
+    // Show help message
+    if (params.help) {
+        helpMessage()
+        exit 0
+    }
+
+    // find files
     if (params.single_end) {
         Channel
             .fromPath("${launchDir}/data/raw/*.fastq.gz")
@@ -268,4 +86,196 @@ workflow {
     map_reads.out | extract_coverage
     estimate_ptr(extract_coverage.out.collect())
     extract_coverage.out.collect() | count_reads
+}
+
+
+process preprocess {
+    cpus 3
+    memory "4GB"
+    time "30m"
+    publishDir "${params.out}/preprocessed"
+
+    input:
+    tuple val(id), path(reads)
+
+    output:
+    tuple val(id), path("${id}_filtered_R*.fastq.gz"), path("${id}_fastp.json"), path("${id}.html")
+
+    script:
+    if (params.single_end)
+        """
+        fastp -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
+            --json ${id}_fastp.json --html ${id}.html \
+            --trim_front1 ${params.trim_front} -l ${params.min_length} \
+            -3 -M ${params.quality_threshold} -r -w ${task.cpus}
+        """
+
+    else
+        """
+        fastp -i ${reads[0]} -I ${reads[1]} \
+            -o ${id}_filtered_R1.fastq.gz -O ${id}_filtered_R2.fastq.gz\
+            --json ${id}_fastp.json --html ${id}.html \
+            --trim_front1 ${params.trim_front} -l ${params.min_length} \
+            -3 -M ${params.quality_threshold} -r -w ${task.cpus}
+        """
+}
+
+process build_index {
+    cpus params.threads
+    memory "16 GB"
+    time "2h"
+    publishDir params.out
+
+    input:
+    path(ref)
+    path(decoy)
+
+    output:
+    path("reference_index")
+
+  script:
+    """
+    mkdir genomes && cp ${ref} ${decoy} genomes
+    mkdir reference_index
+    coptr index --bt2-threads ${task.cpus} genomes reference_index/index
+    """
+}
+
+process map_reads {
+    cpus 3
+    memory "16 GB"
+    time "3h"
+    publishDir "${params.out}/mapped"
+
+    input:
+    tuple val(id), path(reads), path(report), path(html)
+    each path(index)
+
+    output:
+    tuple val(id), path("${id}.bam")
+
+    script:
+    if (params.single_end)
+        """
+      mkdir files bam
+      (cd files && ln -s ../${reads[0]} reads_1.fastq.gz)
+      coptr map --threads ${task.cpus} ${index}/index files bam
+      mv bam/*.bam ${id}.bam
+      """
+    else
+      """
+      mkdir files bam
+      (cd files && ln -s ../${reads[0]} reads_1.fastq.gz && ln -s ../${reads[1]} reads_2.fastq.gz)
+      coptr map --threads ${task.cpus} --paired ${index}/index files bam
+      mv bam/*.bam ${id}.bam
+      """
+}
+
+process multiqc {
+    cpus 1
+    memory "8GB"
+    time "1h"
+    publishDir params.out, mode: "copy", overwrite: true
+
+    input:
+    path(files)
+
+    output:
+    path("multiqc_report.html")
+
+    script:
+    """
+    multiqc .
+    """
+}
+
+process alignment_stats {
+    cpus 1
+    memory "4 GB"
+    time "1h"
+    publishDir "${params.out}/stats"
+
+    input:
+    tuple val(id), path(bam)
+
+    output:
+    path("${id}.sts")
+
+  script:
+    """
+    samtools stats ${bam} > ${id}.sts
+    """
+
+}
+
+process extract_coverage {
+    cpus 1
+    memory "16 GB"
+    time "24h"
+    publishDir params.out
+
+    input:
+    tuple val(id), path(bam)
+
+    output:
+    path("coverage/*.cm.pkl")
+
+    script:
+    """
+    mkdir coverage
+    coptr extract . coverage
+    """
+}
+
+process estimate_ptr {
+    cpus 1
+    memory "16GB"
+    time "12h"
+    publishDir params.out,  mode: "copy", overwrite: true
+
+    input:
+    path(coverage)
+
+    output:
+    path("rates.csv")
+
+    script:
+    """
+    coptr estimate \\
+      --min-reads ${params.minreads} \\
+      --min-cov ${params.mincov} \\
+      --min-samples ${params.minsamples} . rates.csv
+    """
+}
+
+process count_reads {
+    cpus 1
+    memory "16 GB"
+    time "1h"
+    publishDir params.out,  mode: "copy", overwrite: true
+
+    input:
+    path(coverage)
+
+    output:
+    path("reference_counts.csv")
+
+    script:
+    """
+    #!/usr/bin/env python
+
+    import pickle
+    import pandas as pd
+
+    files = "${coverage}".split()
+    counts = []
+    for f in files:
+      print(f"Processing coverage profile {f}...")
+      cov = pickle.load(open(f, "rb"))
+      c = pd.Series({id: c.count_reads() for id, c in cov.items()})
+      c["sample_id"] = f.split(".cm.pkl")[0]
+      counts.append(c)
+    counts = pd.DataFrame.from_records(counts)
+    counts.to_csv("reference_counts.csv", index=False)
+    """
 }

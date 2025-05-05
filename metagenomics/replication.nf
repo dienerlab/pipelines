@@ -29,11 +29,35 @@ def helpMessage() {
 }
 
 params.help = false
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
+
+workflow {
+    // Show help message
+    if (params.help) {
+        helpMessage()
+        exit 0
+    }
+  // find files
+    if (params.single_end) {
+        Channel
+            .fromPath("${params.data_dir}/preprocessed/*.fastq.gz")
+            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
+            .set{reads}
+    } else {
+        Channel
+            .fromFilePairs([
+                "${params.data_dir}/preprocessed/*_filtered_R{1,2}.fastq.gz",
+                "${params.data_dir}/preprocessed/*_R{1,2}_001.fastq.gz",
+                "${params.data_dir}/preprocessed/*_{1,2}.fastq.gz"
+            ])
+            .ifEmpty { error "Cannot find any read files in ${params.data_dir}!" }
+            .set{reads}
+    }
+
+    reads | map_reads | extract_coverage
+    estimate_ptr(extract_coverage.out.collect()) | annotate_ptr
 }
+
+
 
 process map_reads {
     cpus 4
@@ -67,38 +91,40 @@ process map_reads {
 }
 
 process extract_coverage {
-  cpus 1
-  memory "16 GB"
-  time "12h"
-  publishDir "${params.data_dir}/coverage"
+    cpus 1
+    memory "16 GB"
+    time "12h"
+    publishDir "${params.data_dir}/coverage"
 
-  input:
-  tuple val(id), path(bam)
+    input:
+    tuple val(id), path(bam)
 
-  output:
-  path("coverage/*.*")
+    output:
+    path("coverage/*.*")
 
-  """
-  mkdir coverage
-  coptr extract . coverage
-  """
+    script:
+    """
+    mkdir coverage
+    coptr extract . coverage
+    """
 }
 
 process estimate_ptr {
-  cpus 1
-  memory "16GB"
-  time "24h"
-  publishDir "${params.data_dir}",  mode: "copy", overwrite: true
+    cpus 1
+    memory "16GB"
+    time "24h"
+    publishDir "${params.data_dir}",  mode: "copy", overwrite: true
 
-  input:
-  path(coverage)
+    input:
+    path(coverage)
 
-  output:
-  path("rates.csv")
+    output:
+    path("rates.csv")
 
-  """
-  coptr estimate --min-reads ${params.min_reads} . rates.csv
-  """
+    script:
+    """
+    coptr estimate --min-reads ${params.min_reads} . rates.csv
+    """
 }
 
 process annotate_ptr {
@@ -113,7 +139,7 @@ process annotate_ptr {
   output:
   path("annotated_rates.csv")
 
-  shell:
+  script:
   '''
   #!/usr/bin/env python
 
@@ -132,26 +158,4 @@ process annotate_ptr {
   merged = pd.merge(rates, meta, on="representative_genome")
   merged.to_csv("annotated_rates.csv", index=False)
   '''
-}
-
-workflow {
-  // find files
-    if (params.single_end) {
-        Channel
-            .fromPath("${params.data_dir}/preprocessed/*.fastq.gz")
-            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
-            .set{reads}
-    } else {
-        Channel
-            .fromFilePairs([
-                "${params.data_dir}/preprocessed/*_filtered_R{1,2}.fastq.gz",
-                "${params.data_dir}/preprocessed/*_R{1,2}_001.fastq.gz",
-                "${params.data_dir}/preprocessed/*_{1,2}.fastq.gz"
-            ])
-            .ifEmpty { error "Cannot find any read files in ${params.data_dir}!" }
-            .set{reads}
-    }
-
-    reads | map_reads | extract_coverage
-    estimate_ptr(extract_coverage.out.collect()) | annotate_ptr
 }

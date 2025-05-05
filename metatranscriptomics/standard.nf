@@ -49,11 +49,45 @@ def helpMessage() {
 }
 
 params.help = false
-// Show help message
-if (params.help) {
-    helpMessage()
-    exit 0
+
+workflow {
+    // Show help message
+    if (params.help) {
+        helpMessage()
+        exit 0
+    }
+
+    // find files
+    if (params.single_end) {
+        Channel
+            .fromPath("${params.data_dir}/${params.raw_data}/*.fastq.gz")
+            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
+            .set{raw}
+    } else {
+        Channel
+            .fromFilePairs([
+                "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
+                "${params.data_dir}/raw/*_{1,2}.fastq.gz",
+                "${params.data_dir}/raw/*_{1,2}.fq.gz",
+                "${params.data_dir}/raw/*_R{1,2}.fastq.gz"
+            ])
+            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/${params.raw_data}!" }
+            .set{raw}
+    }
+
+    // quality filtering
+    preprocess(raw)
+
+    // build the Salmon index
+    Channel.fromPath("${params.transcripts}") | index
+
+    // Quantify the transcripts
+    quantify(preprocess.out, index.out) | merge_counts
+
+    // quality overview
+    multiqc(preprocess.out.map{it[2]}.collect(), quantify.out.collect())
 }
+
 
 process preprocess {
     cpus 3
@@ -102,6 +136,7 @@ process multiqc {
     output:
     path("multiqc_report.html")
 
+    script:
     """
     multiqc ${params.data_dir}/preprocessed ${params.data_dir}/salmon
     """
@@ -112,7 +147,7 @@ process index {
     cpus params.threads
     memory "128 GB"
     time "8h"
-    publishDir "${projectDir}/data"
+    publishDir params.data_dir
 
     input:
     path(transcripts)
@@ -120,6 +155,7 @@ process index {
     output:
     path("salmon_index")
 
+    script:
     """
     salmon index -p ${task.cpus} -t ${transcripts} -i salmon_index
     """
@@ -130,7 +166,7 @@ process quantify {
     memory "64 GB"
     time "2h"
 
-    publishDir "${projectDir}/data/salmon"
+    publishDir "${params.data_dir}/salmon"
 
     input:
     tuple val(id), path(reads), path(json), path(html)
@@ -162,6 +198,7 @@ process merge_counts {
     output:
     path("transcript_counts.csv.gz")
 
+    script:
     """
     #!/usr/bin/env python
 
@@ -190,36 +227,4 @@ process merge_counts {
             counts.to_csv(gzf, header=(nread==1),
                           index=False)
     """
-}
-
-workflow {
-    // find files
-    if (params.single_end) {
-        Channel
-            .fromPath("${params.data_dir}/${params.raw_data}/*.fastq.gz")
-            .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
-            .set{raw}
-    } else {
-        Channel
-            .fromFilePairs([
-                "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
-                "${params.data_dir}/raw/*_{1,2}.fastq.gz",
-                "${params.data_dir}/raw/*_{1,2}.fq.gz",
-                "${params.data_dir}/raw/*_R{1,2}.fastq.gz"
-            ])
-            .ifEmpty { error "Cannot find any read files in ${params.data_dir}/${params.raw_data}!" }
-            .set{raw}
-    }
-
-    // quality filtering
-    preprocess(raw)
-
-    // build the Salmon index
-    Channel.fromPath("${params.transcripts}") | index
-
-    // Quantify the transcripts
-    quantify(preprocess.out, index.out) | merge_counts
-
-    // quality overview
-    multiqc(preprocess.out.map{it[2]}.collect(), quantify.out.collect())
 }

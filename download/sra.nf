@@ -1,14 +1,15 @@
 nextflow.enable.dsl=2
 
 params.runtable = "${launchDir}/data/runtable.csv"
+params.out = "${launchDir}/data"
 
 process download {
     cpus 4
     memory "2GB"
     time "2h"
     maxRetries 3
-    errorStrategy { (task.attempt <= maxRetries)  ? 'retry' : 'ignore' }
-    publishDir "${launchDir}/data/raw", mode: 'copy'
+    errorStrategy { (task.attempt <= task.maxRetries)  ? 'retry' : 'ignore' }
+    publishDir "${params.out}/raw", mode: 'copy', overwrite: true
 
     input:
     val(run)
@@ -16,6 +17,7 @@ process download {
     output:
     path("*.fastq.gz")
 
+    script:
     """
     aws s3 sync s3://sra-pub-run-odp/sra/${run} sra_${run} --no-sign-request
     fasterq-dump -e ${task.cpus} -f -3 ./sra_${run}/${run} -t -x && rm -rf ./sra_${run}
@@ -25,7 +27,7 @@ process download {
 
 // Use this to merge files by groups
 process mergeFastq {
-    publishDir "${launchDir}/data/merged"
+    publishDir "${params.out}/merged"
 
     cpus 1
     memory "1GB"
@@ -37,16 +39,8 @@ process mergeFastq {
     output:
     path("${id}.fastq.gz")
 
+    script:
     """
     cat ${runs} > ${id}.fastq.gz
     """
-}
-
-workflow {
-    Channel.fromPath(params.runtable)
-        .splitCsv(header: true)
-        .map{row -> row.Run}
-        .set{runs}
-
-    runs | download
 }

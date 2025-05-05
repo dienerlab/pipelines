@@ -179,7 +179,7 @@ process gapfill_gapseq {
   script:
   if (params.medium)
     """
-    cp ${launchDir}/${params.medium} medium.csv
+    cp ${params.data_dir}/${params.medium} medium.csv
     gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} -k ${params.growth}
     gzip ${id}.xml
     """

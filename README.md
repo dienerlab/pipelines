@@ -1,3 +1,7 @@
+[![checks](https://github.com/dienerlab/pipelines/actions/workflows/lint.yml/badge.svg)](https://github.com/dienerlab/pipelines/actions/workflows/lint.yml)
+
+[![docs](https://github.com/dienerlab/pipelines/actions/workflows/docs.yml/badge.svg)](https://dienerlab.github.io/pipelines)
+
 # :hammer: :triangular_ruler: Pipelines
 
 This repo contains various analysis pipelines for the lab. Here are the basic
