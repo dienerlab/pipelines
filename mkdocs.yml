@@ -22,7 +22,11 @@ nav:
       - metagenomics: rep/mgx.md
       - strain-based: rep/strains.md
   - Concepts:
-    - HPC batches: concepts/batching.md
+    - HPC batches: 'concepts/batching.md'
+  - Tips & Gotchas:
+    - Meta-analysis (simple): 'tips/meta-per-study/main.md'
+    - Meta-analysis (complex): tips/meta-per-file/main.md
+
   - Releases: release-notes.md
 
 theme:
