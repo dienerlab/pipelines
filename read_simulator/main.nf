@@ -7,6 +7,7 @@ params.out = "${launchDir}/data"
 params.genomes = "${params.out}/genomes"
 params.mutation_rate = 0.0
 params.manifest = "${params.out}/manifest.csv"
+params.preset = "illumina"
 
 
 def relative_depth(abundance, depth) {
@@ -55,21 +56,36 @@ process sample {
     tuple val(sample_id), val(id), path("*.fastq.gz")
 
     script:
-    """
-    trap "rm ref.fna" EXIT
+    if (params.preset == "illumina")
+        """
+        trap "rm ref.fna" EXIT
 
-    zcat ${genome} > ref.fna
+        zcat ${genome} > ref.fna
 
-    dwgsim -N ${n} -H \
-        -c 0 -S 0 -A 0 -e "0.001-0.005" -E "0.005-0.01" \
-        -1 ${params.read_length} -2 ${params.read_length} -n ${params.read_length} \
-        -d ${params.read_length * 2} \
-        -r ${params.mutation_rate} -y 0 \
-        -P ${id} -o 1 ref.fna sim
+        dwgsim -N ${n} -H \
+            -c 0 -S 0 -A 0 -e "0.001-0.005" -E "0.005-0.01" \
+            -1 ${params.read_length} -2 ${params.read_length} -n ${params.read_length} \
+            -d ${params.read_length * 2} \
+            -r ${params.mutation_rate} -y 0 \
+            -P ${id} -o 1 ref.fna sim
 
-    mv sim.bwa.read1.fastq.gz ${sample_id}_${id}_R1.fastq.gz
-    mv sim.bwa.read2.fastq.gz ${sample_id}_${id}_R2.fastq.gz
-    """
+        mv sim.bwa.read1.fastq.gz ${sample_id}_${id}_R1.fastq.gz
+        mv sim.bwa.read2.fastq.gz ${sample_id}_${id}_R2.fastq.gz
+        """
+    else if (params.preset == "nanopore")
+        """
+        trap "rm ref.fna" EXIT
+
+        zcat ${genome} > ref.fna
+
+        dwgsim -N ${n} -H \
+            -c 0 -S 0 -A 0 -e 0.02 \
+            -1 ${params.read_length} -n ${params.read_length} \
+            -r ${params.mutation_rate} -y 0 \
+            -P ${id} -o 1 ref.fna sim
+
+        mv sim.bwa.read1.fastq.gz ${sample_id}_${id}_R1.fastq.gz
+        """
 }
 
 process merge_reads {
