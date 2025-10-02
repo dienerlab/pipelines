@@ -8,7 +8,7 @@ params.genomes = "${params.out}/genomes"
 params.mutation_rate = 0.0
 params.manifest = "${params.out}/manifest.csv"
 params.preset = "illumina"
-params.maxAmpliconSize = 2000
+params.fullAmpliconSize = 4000
 
 
 def relative_depth(abundance, depth) {
@@ -48,7 +48,7 @@ workflow {
             .set{fastq_groups}
         fastq_groups | merge_single | random_order
     } else {
-        error "Unsupported preset: ${params.preset}"
+        error "Unsupported preset: "${params.preset}""
     }
 
 }
@@ -86,7 +86,7 @@ process sample {
     else if (params.preset == "nanopore")
         """
         badread simulate --reference ${genome} \
-            --quantity ${n * params.maxAmpliconSize} \
+            --quantity ${n * params.fullAmpliconSize} \
             | head -n ${4 * n} | gzip > ${sample_id}_${id}_R1.fastq.gz
         """
 }
@@ -152,14 +152,14 @@ process random_order {
     import shutil
 
     base = Path("sampled")
-    forward = "${reads[0]}" if ${params.preset} == "illumina" else "${reads}"
+    forward = "${reads[0]}" if "${params.preset}" == "illumina" else "${reads}"
 
     with gzip.open(forward, "rt") as infile, open("fwd.fastq", "w") as outfile:
         shutil.copyfileobj(infile, outfile)
     fidx = SeqIO.index("fwd.fastq", "fastq")
     fnames = list(fidx.keys())
 
-    if ${params.preset} == "illumina":
+    if "${params.preset}" == "illumina":
         with gzip.open("${reads[1]}", "rt") as infile, open("rev.fastq", "w") as outfile:
             shutil.copyfileobj(infile, outfile)
         ridx = SeqIO.index("rev.fastq", "fastq")
@@ -170,27 +170,27 @@ process random_order {
     shuffle(ord)
 
     os.mkdir(base)
-    print("Sampling records...", flush=True))
+    print("Sampling records...", flush=True)
 
     try:
         fwd = gzip.open(base / "${sample_id}_R1.fastq.gz", "wb")
-        if ${params.preset} == "illumina":
+        if "${params.preset}" == "illumina":
             rev = gzip.open(base / "${sample_id}_R2.fastq.gz", "wb")
 
         for i, rec in enumerate(ord):
             fwd.write(fidx.get_raw(fnames[rec]))
-            if ${params.preset} == "illumina":
+            if "${params.preset}" == "illumina":
                 rev.write(ridx.get_raw(rnames[rec]))
             if i % 10000 == 0:
                 print(f"Processed {i} records...", flush=True)
 
-        os.remove("fwd.fastq")
-        os.remove("rev.fastq")
-        print("Done.")
     finally:
         fwd.close()
-        if ${params.preset} == "illumina":
+        os.remove("fwd.fastq")
+        if "${params.preset}" == "illumina":
             rev.close()
+            os.remove("rev.fastq")
+    print("Done.")
     """
 
 }
