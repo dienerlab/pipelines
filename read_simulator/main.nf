@@ -27,19 +27,29 @@ workflow {
         .set{manifest}
 
     manifest | sample
-    sample.out
-        .map{ it -> tuple(it[0], it[2][0]) }
-        .groupTuple()
-        .set{forward_groups}
-    sample.out
-        .map{ it -> tuple(it[0], it[2][1]) }
-        .groupTuple()
-        .set{reverse_groups}
-    forward_groups
-        .combine(reverse_groups, by: 0)
-        .set{fastq_groups}
 
-    fastq_groups | merge_reads | random_order
+    if (params.preset == "illumina") {
+        sample.out
+            .map{ it -> tuple(it[0], it[2][0]) }
+            .groupTuple()
+            .set{forward_groups}
+        sample.out
+            .map{ it -> tuple(it[0], it[2][1]) }
+            .groupTuple()
+            .set{reverse_groups}
+        forward_groups
+            .combine(reverse_groups, by: 0)
+        .set{fastq_groups}
+        fastq_groups | merge_paired | random_order
+    } else if (params.preset == "nanopore") {
+        sample.out
+            .map{ it -> tuple(it[0], it[2]) }
+            .groupTuple()
+            .set{fastq_groups}
+        fastq_groups | merge_single | random_order
+    } else {
+        error "Unsupported preset: ${params.preset}"
+    }
 
 }
 
@@ -81,7 +91,7 @@ process sample {
         """
 }
 
-process merge_reads {
+process merge_paired {
     cpus 1
     memory "4 GB"
     time "1h"
@@ -96,6 +106,24 @@ process merge_reads {
     """
     cat ${forward} > ${sample_id}_R1.fastq.gz
     cat ${reverse} > ${sample_id}_R2.fastq.gz
+    """
+
+}
+
+process merge_single {
+    cpus 1
+    memory "4 GB"
+    time "1h"
+
+    input:
+    tuple val(sample_id), path(forward)
+
+    output:
+    tuple val(sample_id), path("${sample_id}_*.fastq.gz")
+
+    script:
+    """
+    cat ${forward} > ${sample_id}_R1.fastq.gz
     """
 
 }
@@ -124,32 +152,45 @@ process random_order {
     import shutil
 
     base = Path("sampled")
+    forward = "${reads[0]}" if ${params.preset} == "illumina" else "${reads}"
 
-    with gzip.open("${reads[0]}", "rt") as infile, open("fwd.fastq", "w") as outfile:
-        shutil.copyfileobj(infile, outfile)
-    with gzip.open("${reads[1]}", "rt") as infile, open("rev.fastq", "w") as outfile:
+    with gzip.open(forward, "rt") as infile, open("fwd.fastq", "w") as outfile:
         shutil.copyfileobj(infile, outfile)
     fidx = SeqIO.index("fwd.fastq", "fastq")
-    ridx = SeqIO.index("rev.fastq", "fastq")
+    fnames = list(fidx.keys())
+
+    if ${params.preset} == "illumina":
+        with gzip.open("${reads[1]}", "rt") as infile, open("rev.fastq", "w") as outfile:
+            shutil.copyfileobj(infile, outfile)
+        ridx = SeqIO.index("rev.fastq", "fastq")
+        rnames = list(ridx.keys())
+
     print(f"Finished indexing {len(fidx)} records...")
     ord = list(range(len(fidx)))
     shuffle(ord)
 
     os.mkdir(base)
-    print("Sampling records...", flush=True)
+    print("Sampling records...", flush=True))
 
-    fnames = list(fidx.keys())
-    rnames = list(ridx.keys())
-    with gzip.open(base / "${sample_id}_R1.fastq.gz", "wb") as fwd, gzip.open(base / "${sample_id}_R2.fastq.gz", "wb") as rev:
+    try:
+        fwd = gzip.open(base / "${sample_id}_R1.fastq.gz", "wb")
+        if ${params.preset} == "illumina":
+            rev = gzip.open(base / "${sample_id}_R2.fastq.gz", "wb")
+
         for i, rec in enumerate(ord):
             fwd.write(fidx.get_raw(fnames[rec]))
-            rev.write(ridx.get_raw(rnames[rec]))
+            if ${params.preset} == "illumina":
+                rev.write(ridx.get_raw(rnames[rec]))
             if i % 10000 == 0:
                 print(f"Processed {i} records...", flush=True)
 
-    os.remove("fwd.fastq")
-    os.remove("rev.fastq")
-    print("Done.")
+        os.remove("fwd.fastq")
+        os.remove("rev.fastq")
+        print("Done.")
+    finally:
+        fwd.close()
+        if ${params.preset} == "illumina":
+            rev.close()
     """
 
 }
