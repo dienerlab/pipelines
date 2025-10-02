@@ -8,6 +8,7 @@ params.genomes = "${params.out}/genomes"
 params.mutation_rate = 0.0
 params.manifest = "${params.out}/manifest.csv"
 params.preset = "illumina"
+params.maxAmpliconSize = 2000
 
 
 def relative_depth(abundance, depth) {
@@ -74,17 +75,9 @@ process sample {
         """
     else if (params.preset == "nanopore")
         """
-        trap "rm ref.fna" EXIT
-
-        zcat ${genome} > ref.fna
-
-        dwgsim -N ${n} -H \
-            -c 0 -S 0 -A 0 -e 0.02 \
-            -1 ${params.read_length} -n ${params.read_length} \
-            -r ${params.mutation_rate} -y 0 \
-            -P ${id} -o 1 ref.fna sim
-
-        mv sim.bwa.read1.fastq.gz ${sample_id}_${id}_R1.fastq.gz
+        badread simulate --reference ${genome} \
+            --quantity ${n * params.maxAmpliconSize} \
+            | head -n ${4 * n} | gzip > ${sample_id}_${id}_R1.fastq.gz
         """
 }
 
