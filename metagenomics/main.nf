@@ -22,6 +22,7 @@ params.threads = 12
 params.confidence = 0.3
 params.ranks = "D,P,G,S"
 params.batchsize = 50
+params.method = "illumina"
 
 
 // Helper to calculate the required RAM for the Kraken2 database
@@ -59,6 +60,9 @@ def helpMessage() {
       --single_end [bool]           Specifies that the input is single-end reads.
       --threads [int]               The maximum number of threads a single process can use.
                                     This is not the same as the maximum number of total threads used.
+      --method [str]                What sequencing technology was used. Can be "illumina", "nanopore", or "pacbio".
+      --raw_data [str]             The folder inside data_dir containing the raw read files.
+      --refs [str]                  Folder in which to find references DBs.
     Reference DBs:
       --refs [str]                  Folder in which to find references DBs.
       --eggnogg_refs [str]          Where to find EGGNOG references. Defaults to <refs>/eggnog.
@@ -99,18 +103,18 @@ workflow {
         exit 0
     }
 
-    Channel
+    channel
     .of(params.ranks.split(","))
     .set{levels}
 
     // find files
     if (params.single_end) {
-        Channel
+        channel
             .fromPath("${params.data_dir}/${params.raw_data}/*.fastq.gz")
             .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
             .set{raw}
     } else {
-        Channel
+        channel
             .fromFilePairs([
                 "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
                 "${params.data_dir}/raw/*_{1,2}.fastq.gz",
@@ -145,10 +149,10 @@ workflow {
     multiqc(merge_taxonomy.out.collect())
 
     // assemble de novo
-    megahit(preprocess.out)
+    assemble(preprocess.out)
 
     // find ORFs and count them
-    find_genes(megahit.out)
+    find_genes(assemble.out)
     preprocess.out.combine(find_genes.out, by: 0) | map_and_count
     merge_counts(map_and_count.out.collect())
 
@@ -176,7 +180,7 @@ process preprocess {
     tuple val(id), path("${id}_filtered_R*.fastq.gz"), path("${id}_fastp.json"), path("${id}.html")
 
     script:
-    if (params.single_end)
+    if (params.single_end && params.method == "illumina")
         """
         fastp -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
             --json ${id}_fastp.json --html ${id}.html \
@@ -185,7 +189,7 @@ process preprocess {
             --max_len1 ${params.read_length}
         """
 
-    else
+    else if (!params.single_end && params.method == "illumina")
         """
         fastp -i ${reads[0]} -I ${reads[1]} \
             -o ${id}_filtered_R1.fastq.gz -O ${id}_filtered_R2.fastq.gz\
@@ -194,6 +198,15 @@ process preprocess {
             -3 -M ${params.quality_threshold} -r -w ${task.cpus} \
             --max_len1 ${params.read_length} --max_len2 ${params.read_length}
         """
+    else if (params.method == "nanopore" || params.method == "pacbio")
+        """
+        fastplong -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
+            --json ${id}_fastp.json --html ${id}.html \
+            --trim_front1 ${params.trim_front} -l ${params.min_length} \
+            -3 -M ${params.quality_threshold} -r -w ${task.cpus}
+        """
+    else
+        error "Unsupported method: ${params.method}"
 }
 
 
@@ -355,7 +368,7 @@ process multiqc {
 }
 
 
-process megahit {
+process assemble {
     cpus 4
     memory "16GB"
     time "12h"
@@ -369,17 +382,22 @@ process megahit {
     tuple val(id), path("contigs/${id}.contigs.fa")
 
     script:
-    if (params.single_end)
+    if (params.single_end && params.method == "illumina")
         """
         megahit -r ${reads} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
-    else
+    else if (!params.single_end && params.method == "illumina")
         """
         megahit -1 ${reads[0]} -2 ${reads[1]} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
+        """
+    else if (params.method == "nanopore" || params.method == "pacbio")
+        """
+        metaMDBG asm --out-dir ./contigs --in-ont ${reads} --threads ${task.cpus}
+        zcat contigs/contigs.fa.gz | sed -e "s/^>/>${id}_/" > contigs/${id}.contigs.fa
         """
 }
 
