@@ -87,6 +87,7 @@ process sample {
         """
         badread simulate --reference ${genome} \
             --quantity ${n * params.fullAmpliconSize} \
+            --glitches 0,0,0 --chimeras 0.0 \
             | head -n ${4 * n} | gzip > ${sample_id}_${id}_R1.fastq.gz
         """
 }
