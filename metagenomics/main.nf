@@ -30,8 +30,8 @@ def estimate_db_size(hash, extra) {
     def db_size = null
 
     // Calculate db memory requirement
-    if (params.dbmem) {
-        db_size = MemoryUnit.of("${params.dbmem} GB")
+    if (params.kraken2_mem) {
+        db_size = MemoryUnit.of("${params.kraken2_mem} GB")
     } else {
         db_size = MemoryUnit.of(file(hash).size()) + extra
         log.info("Based on the hash size I am reserving ${db_size.toGiga()}GB of memory for Kraken2.")
@@ -185,7 +185,7 @@ process preprocess {
         fastp -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
             --json ${id}_fastp.json --html ${id}.html \
             --trim_front1 ${params.trim_front} -l ${params.min_length} \
-            -3 -M ${params.quality_threshold} -r -w ${task.cpus} \
+            -3 -M ${params.quality_threshold} -w ${task.cpus} \
             --max_len1 ${params.read_length}
         """
 
@@ -195,15 +195,15 @@ process preprocess {
             -o ${id}_filtered_R1.fastq.gz -O ${id}_filtered_R2.fastq.gz\
             --json ${id}_fastp.json --html ${id}.html \
             --trim_front1 ${params.trim_front} -l ${params.min_length} \
-            -3 -M ${params.quality_threshold} -r -w ${task.cpus} \
+            -3 -M ${params.quality_threshold} -w ${task.cpus} \
             --max_len1 ${params.read_length} --max_len2 ${params.read_length}
         """
     else if (params.method == "nanopore" || params.method == "pacbio")
         """
         fastplong -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
             --json ${id}_fastp.json --html ${id}.html \
-            --trim_front1 ${params.trim_front} -l ${params.min_length} \
-            -3 -M ${params.quality_threshold} -r -w ${task.cpus}
+             -l ${params.min_length} \
+            -3 -M ${params.quality_threshold} -w ${task.cpus}
         """
     else
         error "Unsupported method: ${params.method}"
@@ -313,6 +313,7 @@ process merge_taxonomy {
 
     ranks = pd.Series({
         "d": "domain",
+        "k": "kingdom",
         "p": "phylum",
         "c": "class",
         "o": "order",
@@ -397,7 +398,7 @@ process assemble {
     else if (params.method == "nanopore" || params.method == "pacbio")
         """
         metaMDBG asm --out-dir ./contigs --in-ont ${reads} --threads ${task.cpus}
-        zcat contigs/contigs.fa.gz | sed -e "s/^>/>${id}_/" > contigs/${id}.contigs.fa
+        zcat contigs/contigs.fasta.gz | sed -e "s/^>/>${id}_/" > contigs/${id}.contigs.fa
         """
 }
 
@@ -487,8 +488,8 @@ process filter_transcripts {
 
 process map_and_count {
     cpus 2
-    memory "16GB"
-    time "2h"
+    memory "32 GB"
+    time "4h"
 
     input:
     tuple val(id), path(reads), path(json), path(html), path(genes), path(proteins)
