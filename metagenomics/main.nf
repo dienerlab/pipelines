@@ -132,12 +132,12 @@ workflow {
     // buffer the samples into batches
     batched = preprocess.out
         .collate(params.batchsize)
-        .map{it -> tuple it.collect{a -> a[0]}, it.collect{a -> a[1]}.flatten()}
+        .map{it -> it.collect{a -> a[1]}.flatten().sort()}
     // run Kraken2
     kraken(batched)
     reports = kraken.out
-        .flatMap{it[1]}
-        .map{tuple it.baseName.split(".tsv")[0], it}
+        .flatMap{k -> k[1]}
+        .map{k -> tuple k.baseName.split(".tsv")[0], k}
 
     count_taxa(reports.combine(levels))
     count_taxa.out.map{s -> tuple(s[1], s[3])}
@@ -324,7 +324,7 @@ process merge_taxonomy {
 
     def str_to_taxa(taxon):
         taxon = taxon.split("|")
-        taxa = pd.Series({ranks[t.split("_", 1)[0]]: t.split("_", 1)[1] for t in taxon})
+        taxa = pd.Series({ranks[t.split("__", 1)[0]]: t.split("__", 1)[1] for t in taxon})
         return taxa
 
     read = []
@@ -340,7 +340,7 @@ process merge_taxonomy {
         except pd.errors.EmptyDataError:
             continue
         counts = counts[counts.iloc[:, 0].str.contains(
-            str("d" if lev == "D" else lev).lower() + "_")]
+            str("d" if lev == "D" else lev).lower() + "__")]
         taxa = counts.iloc[:, 0].apply(str_to_taxa)
         taxa["reads"] = counts.iloc[:, 1]
         taxa["sample"] = id
