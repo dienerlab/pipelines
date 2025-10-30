@@ -488,7 +488,7 @@ process filter_transcripts {
 
 process map_and_count {
     cpus 2
-    memory "32 GB"
+    memory "16 GB"
     time "4h"
 
     input:
@@ -515,7 +515,7 @@ process map_and_count {
     else if (params.method == "nanopore" || params.method == "pacbio")
         """
         minimap2 -ax map-ont -p 1.0 -N 100 -t ${task.cpus} ${genes} ${reads} | samtools view -bS > ${id}.bam
-        salmon quant -t ${genes} -q --ont --meta-l U -a ${id}.bam -o ${id} -p ${task.cpus} &&
+        salmon quant -t ${genes} -q --ont --meta -l U -a ${id}.bam -o ${id} -p ${task.cpus} &&
             mv ${id}_salmon/quant.sf ${id}.sf || touch ${id}.sf
         rm ${id}.bam
         """
