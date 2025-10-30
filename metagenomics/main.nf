@@ -498,19 +498,26 @@ process map_and_count {
     path("${id}.sf")
 
     script:
-    if (params.single_end)
+    if (params.single_end && params.method == "illumina")
         """
         salmon index -p ${task.cpus} -t ${genes} -i ${id}_index || touch ${id}_index
         salmon quant --meta -p ${task.cpus} -l A -i ${id}_index -r ${reads} -o ${id} &&
             mv ${id}/quant.sf ${id}.sf || touch ${id}.sf
         rm -rf ${id}_index
         """
-    else
+    else if (!params.single_end && params.method == "illumina")
         """
         salmon index -p ${task.cpus} -t ${genes} -i ${id}_index || touch ${id}_index
         salmon quant --meta -p ${task.cpus} -l A -i ${id}_index -1 ${reads[0]} -2 ${reads[1]} -o ${id} &&
             mv ${id}/quant.sf ${id}.sf || touch ${id}.sf
         rm -rf ${id}_index
+        """
+    else if (params.method == "nanopore" || params.method == "pacbio")
+        """
+        minimap2 -ax map-ont -p 1.0 -N 100 -t ${task.cpus} ${genes} ${reads} | samtools view -bS > ${id}.bam
+        salmon quant -t ${genes} -q --ont --meta-l U -a ${id}.bam -o ${id} -p ${task.cpus} &&
+            mv ${id}_salmon/quant.sf ${id}.sf || touch ${id}.sf
+        rm ${id}.bam
         """
 }
 
