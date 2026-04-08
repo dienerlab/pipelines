@@ -18,6 +18,7 @@ params.db_name = "database"
 params.taxversion = "gtdb220"
 params.anaerobic = false
 params.growth = 0.01
+params.aligner = "diamond"
 
 
 def helpMessage() {
@@ -140,10 +141,10 @@ process build_gapseq {
     GSTMP=\$(mktemp -d -t gapseq_XXXXXXXXXX)
     trap "rm -rf \$GSTMP" EXIT
 
-    gapseq find -O -p all -T \$GSTMP -K 1 -v 1 -t ${domain} -b ${params.gapseq_good_score} ${assembly} > ${id}.log || true
+    gapseq find -O -p all -A ${params.aligner} -T \$GSTMP -K 1 -v 1 -t ${domain} -b ${params.gapseq_good_score} ${assembly} > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
-    TMPDIR=\$GSTMP gapseq find-transport -K 1 -v 1 -b ${params.gapseq_good_score} ${assembly} > ${id}.log || true
+    TMPDIR=\$GSTMP gapseq find-transport -K 1 -v 1 -A ${params.aligner} -b ${params.gapseq_good_score} ${assembly} > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
     (( \$(grep -c "good_blast" ${id}-all-Reactions.tbl) >= ${params.min_reactions} )) || exit 1

@@ -4,14 +4,15 @@ channels:
   - bioconda
   - default
 dependencies:
-  - python>=3.8
+  - python>=3.10
   - nextflow
   - diamond
   - cobra
   - pip
   - wheel
   - prodigal
+  - pyrodigal
   - pip:
     - carveme
     - memote
-    - /home/isilon/users/o_diener/software/cplex/python/3.x/x86-64_linux/
+    - cplex
