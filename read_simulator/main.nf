@@ -16,7 +16,7 @@ def relative_depth(abundance, depth) {
 }
 
 workflow {
-    Channel
+    channel
         .fromPath("${params.manifest}")
         .splitCsv(header: true)
         .map{row -> tuple(
@@ -48,7 +48,7 @@ workflow {
             .set{fastq_groups}
         fastq_groups | merge_single | random_order
     } else {
-        error "Unsupported preset: "${params.preset}""
+        error "Unsupported preset: '${params.preset}'"
     }
 
 }

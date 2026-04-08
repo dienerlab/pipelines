@@ -38,12 +38,12 @@ workflow {
     }
   // find files
     if (params.single_end) {
-        Channel
+        channel
             .fromPath("${params.data_dir}/preprocessed/*.fastq.gz")
             .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
             .set{reads}
     } else {
-        Channel
+        channel
             .fromFilePairs([
                 "${params.data_dir}/preprocessed/*_filtered_R{1,2}.fastq.gz",
                 "${params.data_dir}/preprocessed/*_R{1,2}_001.fastq.gz",

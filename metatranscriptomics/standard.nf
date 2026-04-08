@@ -59,12 +59,12 @@ workflow {
 
     // find files
     if (params.single_end) {
-        Channel
+        channel
             .fromPath("${params.data_dir}/${params.raw_data}/*.fastq.gz")
             .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
             .set{raw}
     } else {
-        Channel
+        channel
             .fromFilePairs([
                 "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
                 "${params.data_dir}/raw/*_{1,2}.fastq.gz",
@@ -79,13 +79,13 @@ workflow {
     preprocess(raw)
 
     // build the Salmon index
-    Channel.fromPath("${params.transcripts}") | index
+    channel.fromPath("${params.transcripts}") | index
 
     // Quantify the transcripts
     quantify(preprocess.out, index.out) | merge_counts
 
     // quality overview
-    multiqc(preprocess.out.map{it[2]}.collect(), quantify.out.collect())
+    multiqc(preprocess.out.map{it -> it[2]}.collect(), quantify.out.collect())
 }
 
 

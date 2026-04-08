@@ -412,7 +412,7 @@ workflow {
       exit 0
   }
 
-  Channel
+  channel
     .fromPath("${params.genomes}")
     .splitCsv(header: true)
     .map{row -> tuple(row.id, row.lineage ==~ "d__Archaea" ? "Archaea" : "Bacteria", "${params.data_dir}/raw/${row.assembly}")}
@@ -448,5 +448,5 @@ workflow {
     .map{it -> it[1]}
     .collect()
     .set{all_models}
-  model_db(all_models, Channel.fromPath("${params.genomes}"))
+  model_db(all_models, channel.fromPath("${params.genomes}"))
 }

@@ -22,6 +22,7 @@ params.threads = 12
 params.confidence = 0.3
 params.ranks = "D,P,G,S"
 params.batchsize = 50
+params.method = "illumina"
 
 
 // Helper to calculate the required RAM for the Kraken2 database
@@ -29,8 +30,8 @@ def estimate_db_size(hash, extra) {
     def db_size = null
 
     // Calculate db memory requirement
-    if (params.dbmem) {
-        db_size = MemoryUnit.of("${params.dbmem} GB")
+    if (params.kraken2_mem) {
+        db_size = MemoryUnit.of("${params.kraken2_mem} GB")
     } else {
         db_size = MemoryUnit.of(file(hash).size()) + extra
         log.info("Based on the hash size I am reserving ${db_size.toGiga()}GB of memory for Kraken2.")
@@ -59,6 +60,9 @@ def helpMessage() {
       --single_end [bool]           Specifies that the input is single-end reads.
       --threads [int]               The maximum number of threads a single process can use.
                                     This is not the same as the maximum number of total threads used.
+      --method [str]                What sequencing technology was used. Can be "illumina", "nanopore", or "pacbio".
+      --raw_data [str]             The folder inside data_dir containing the raw read files.
+      --refs [str]                  Folder in which to find references DBs.
     Reference DBs:
       --refs [str]                  Folder in which to find references DBs.
       --eggnogg_refs [str]          Where to find EGGNOG references. Defaults to <refs>/eggnog.
@@ -99,18 +103,18 @@ workflow {
         exit 0
     }
 
-    Channel
+    channel
     .of(params.ranks.split(","))
     .set{levels}
 
     // find files
     if (params.single_end) {
-        Channel
+        channel
             .fromPath("${params.data_dir}/${params.raw_data}/*.fastq.gz")
             .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
             .set{raw}
     } else {
-        Channel
+        channel
             .fromFilePairs([
                 "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
                 "${params.data_dir}/raw/*_{1,2}.fastq.gz",
@@ -128,12 +132,12 @@ workflow {
     // buffer the samples into batches
     batched = preprocess.out
         .collate(params.batchsize)
-        .map{it -> tuple it.collect{a -> a[0]}, it.collect{a -> a[1]}.flatten()}
+        .map{it -> it.collect{a -> a[1]}.flatten().sort()}
     // run Kraken2
     kraken(batched)
     reports = kraken.out
-        .flatMap{it[1]}
-        .map{tuple it.baseName.split(".tsv")[0], it}
+        .flatMap{k -> k[1]}
+        .map{k -> tuple k.baseName.split(".tsv")[0], k}
 
     count_taxa(reports.combine(levels))
     count_taxa.out.map{s -> tuple(s[1], s[3])}
@@ -145,10 +149,10 @@ workflow {
     multiqc(merge_taxonomy.out.collect())
 
     // assemble de novo
-    megahit(preprocess.out)
+    assemble(preprocess.out)
 
     // find ORFs and count them
-    find_genes(megahit.out)
+    find_genes(assemble.out)
     preprocess.out.combine(find_genes.out, by: 0) | map_and_count
     merge_counts(map_and_count.out.collect())
 
@@ -176,24 +180,33 @@ process preprocess {
     tuple val(id), path("${id}_filtered_R*.fastq.gz"), path("${id}_fastp.json"), path("${id}.html")
 
     script:
-    if (params.single_end)
+    if (params.single_end && params.method == "illumina")
         """
         fastp -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
             --json ${id}_fastp.json --html ${id}.html \
             --trim_front1 ${params.trim_front} -l ${params.min_length} \
-            -3 -M ${params.quality_threshold} -r -w ${task.cpus} \
+            -3 -M ${params.quality_threshold} -w ${task.cpus} \
             --max_len1 ${params.read_length}
         """
 
-    else
+    else if (!params.single_end && params.method == "illumina")
         """
         fastp -i ${reads[0]} -I ${reads[1]} \
             -o ${id}_filtered_R1.fastq.gz -O ${id}_filtered_R2.fastq.gz\
             --json ${id}_fastp.json --html ${id}.html \
             --trim_front1 ${params.trim_front} -l ${params.min_length} \
-            -3 -M ${params.quality_threshold} -r -w ${task.cpus} \
+            -3 -M ${params.quality_threshold} -w ${task.cpus} \
             --max_len1 ${params.read_length} --max_len2 ${params.read_length}
         """
+    else if (params.method == "nanopore" || params.method == "pacbio")
+        """
+        fastplong -i ${reads[0]} -o ${id}_filtered_R1.fastq.gz \
+            --json ${id}_fastp.json --html ${id}.html \
+             -l ${params.min_length} \
+            -3 -M ${params.quality_threshold} -w ${task.cpus}
+        """
+    else
+        error "Unsupported method: ${params.method}"
 }
 
 
@@ -300,6 +313,7 @@ process merge_taxonomy {
 
     ranks = pd.Series({
         "d": "domain",
+        "k": "kingdom",
         "p": "phylum",
         "c": "class",
         "o": "order",
@@ -310,7 +324,7 @@ process merge_taxonomy {
 
     def str_to_taxa(taxon):
         taxon = taxon.split("|")
-        taxa = pd.Series({ranks[t.split("_", 1)[0]]: t.split("_", 1)[1] for t in taxon})
+        taxa = pd.Series({ranks[t.split("__", 1)[0]]: t.split("__", 1)[1] for t in taxon})
         return taxa
 
     read = []
@@ -326,7 +340,7 @@ process merge_taxonomy {
         except pd.errors.EmptyDataError:
             continue
         counts = counts[counts.iloc[:, 0].str.contains(
-            str("d" if lev == "D" else lev).lower() + "_")]
+            str("d" if lev == "D" else lev).lower() + "__")]
         taxa = counts.iloc[:, 0].apply(str_to_taxa)
         taxa["reads"] = counts.iloc[:, 1]
         taxa["sample"] = id
@@ -355,7 +369,7 @@ process multiqc {
 }
 
 
-process megahit {
+process assemble {
     cpus 4
     memory "16GB"
     time "12h"
@@ -369,17 +383,22 @@ process megahit {
     tuple val(id), path("contigs/${id}.contigs.fa")
 
     script:
-    if (params.single_end)
+    if (params.single_end && params.method == "illumina")
         """
         megahit -r ${reads} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
-    else
+    else if (!params.single_end && params.method == "illumina")
         """
         megahit -1 ${reads[0]} -2 ${reads[1]} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
+        """
+    else if (params.method == "nanopore" || params.method == "pacbio")
+        """
+        metaMDBG asm --out-dir ./contigs --in-ont ${reads} --threads ${task.cpus}
+        zcat contigs/contigs.fasta.gz | sed -e "s/^>/>${id}_/" > contigs/${id}.contigs.fa
         """
 }
 
@@ -469,8 +488,8 @@ process filter_transcripts {
 
 process map_and_count {
     cpus 2
-    memory "16GB"
-    time "2h"
+    memory "32 GB"
+    time "4h"
 
     input:
     tuple val(id), path(reads), path(json), path(html), path(genes), path(proteins)
@@ -479,19 +498,26 @@ process map_and_count {
     path("${id}.sf")
 
     script:
-    if (params.single_end)
+    if (params.single_end && params.method == "illumina")
         """
         salmon index -p ${task.cpus} -t ${genes} -i ${id}_index || touch ${id}_index
         salmon quant --meta -p ${task.cpus} -l A -i ${id}_index -r ${reads} -o ${id} &&
             mv ${id}/quant.sf ${id}.sf || touch ${id}.sf
         rm -rf ${id}_index
         """
-    else
+    else if (!params.single_end && params.method == "illumina")
         """
         salmon index -p ${task.cpus} -t ${genes} -i ${id}_index || touch ${id}_index
         salmon quant --meta -p ${task.cpus} -l A -i ${id}_index -1 ${reads[0]} -2 ${reads[1]} -o ${id} &&
             mv ${id}/quant.sf ${id}.sf || touch ${id}.sf
         rm -rf ${id}_index
+        """
+    else if (params.method == "nanopore" || params.method == "pacbio")
+        """
+        minimap2 -ax map-ont -p 1.0 -N 100 -t ${task.cpus} ${genes} ${reads} | samtools view -bS > ${id}.bam
+        salmon quant -t ${genes} -q --ont --meta-l U -a ${id}.bam -o ${id} -p ${task.cpus} &&
+            mv ${id}_salmon/quant.sf ${id}.sf || touch ${id}.sf
+        rm ${id}.bam
         """
 }
 

@@ -50,12 +50,12 @@ workflow {
 
     // find files
     if (params.single_end) {
-        Channel
+        channel
             .fromPath("${launchDir}/data/raw/*.fastq.gz")
             .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
             .set{reads}
     } else {
-        Channel
+        channel
             .fromFilePairs([
                 "${launchDir}/data/raw/*_filtered_R{1,2}.fastq.gz",
                 "${launchDir}/data/raw/*_R{1,2}_001.fastq.gz",
@@ -66,11 +66,11 @@ workflow {
             .set{reads}
     }
 
-    Channel
+    channel
         .fromPath("${launchDir}/data/${params.reference}")
         .ifEmpty { error "Cannot find the reference in ${launchDir}/data!" }
         .set{ref}
-    Channel
+    channel
         .fromPath("${launchDir}/data/${params.decoy}")
         .ifEmpty { error "Cannot find the decoy in ${launchDir}/data!" }
         .set{decoy}

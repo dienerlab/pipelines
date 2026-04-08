@@ -2,11 +2,10 @@ name: metagenomics
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
   - python
   - diamond
-  - nextflow>=24.04
+  - nextflow>=25.04
   - fastp
   - megahit
   - kraken2==2.1.3
@@ -26,5 +25,7 @@ dependencies:
   - pysam
   - scipy
   - matplotlib
+  - metaMDBG
+  - fastplong
   - pip:
     - git+https://github.com/tyjo/coptr

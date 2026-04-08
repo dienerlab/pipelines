@@ -6,7 +6,7 @@ params.visualize = true
 
 workflow {
     // Read the studies table
-    studies = Channel.fromPath(params.studies)
+    studies = channel.fromPath(params.studies)
         .splitCsv(header: true, sep: ",")
 
     // Do some work on the studies

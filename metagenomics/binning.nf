@@ -60,12 +60,12 @@ workflow {
 
     if (params.manifest == null) {
         if (params.single_end) {
-            Channel
+            channel
                 .fromPath("${params.data_dir}/preprocessed/*.fastq.gz")
                 .map{row -> tuple(row.baseName, tuple(row))}
                 .set{reads}
         } else {
-            Channel
+            channel
                 .fromFilePairs([
                     "${params.data_dir}/preprocessed/*_R{1,2}_001.fastq.gz",
                     "${params.data_dir}/preprocessed/*_{1,2}.fastq.gz",
@@ -75,9 +75,9 @@ workflow {
                 .set{reads}
         }
 
-        clean = reads.map{tuple it[0].replace("_filtered", ""), it[1]}
+        clean = reads.map{it -> tuple it[0].replace("_filtered", ""), it[1]}
 
-        Channel
+        channel
             .fromPath("${params.data_dir}/assembled/contigs/*.contigs.fa")
             .map{row -> tuple(row.baseName.split("\\.contigs")[0], row)}
             .set{assemblies}
@@ -85,7 +85,7 @@ workflow {
         merged = assemblies.join(clean)
     } else {
         log.info("Using manifest file ${params.manifest}.")
-        Channel
+        channel
             .fromPath("${launchDir}/${params.manifest}")
             .splitCsv(header: true)
             .set{rows}
@@ -113,7 +113,7 @@ workflow {
     all_bins = binned.map{it -> it[1]}.collect()
     all_bins | gtdb_classify
     rename(all_bins, gtdb_classify.out)
-    rename.out.map{it[1]} | checkm | format_report
+    rename.out.map{it -> it[1]} | checkm | format_report
     dereplicate(format_report.out, rename.out)
 
 }

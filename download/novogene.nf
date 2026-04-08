@@ -6,7 +6,7 @@ params.data_dir = "${launchDir}/data"
 params.runtable = "${params.data_dir}/links.txt"
 
 workflow {
-    Channel.fromPath(params.runtable)
+    channel.fromPath(params.runtable)
         .splitCsv()
         .map{ row -> row[0] }
         .filter{ s -> s=~/RawData.*\.fq\.gz$/ }
