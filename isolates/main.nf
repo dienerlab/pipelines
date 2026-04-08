@@ -52,12 +52,12 @@ workflow {
 
     // find files
     if (params.single_end) {
-        Channel
+        channel
             .fromPath("${params.out}/raw/*.fastq.gz")
             .map{row -> tuple(row.baseName.split("\\.fastq")[0], tuple(row))}
             .set{raw}
     } else {
-        Channel
+        channel
             .fromFilePairs([
                 "${params.out}/raw/*_R{1,2}_001.fastq.gz",
                 "${params.out}/raw/*_{1,2}.fastq.gz",
@@ -72,7 +72,7 @@ workflow {
 
     megahit.out
         .map{it -> it[1]}
-        .filter{it.size() > 0}
+        .filter{it -> it.size() > 0}
         .collect()
         .set{assemblies}
     assemblies | checkm

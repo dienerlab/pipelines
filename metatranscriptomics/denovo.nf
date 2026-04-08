@@ -61,7 +61,7 @@ workflow {
 
     // find files
     if (params.single_end || (params.preset == "nanopore")) {
-        Channel
+        channel
             .fromPath([
                 "${params.data_dir}/raw/*.fastq.gz",
                 "${params.data_dir}/raw/*.fq.gz",
@@ -72,7 +72,7 @@ workflow {
             .map{row -> tuple(row.baseName, tuple(row))}
             .set{raw}
     } else {
-        Channel
+        channel
             .fromFilePairs([
                 "${params.data_dir}/raw/*_R{1,2}_001.fastq.gz",
                 "${params.data_dir}/raw/*_{1,2}.fastq.gz",
@@ -86,8 +86,8 @@ workflow {
     // quality filtering
     preprocess(raw) | assemble
 
-    assemble.out.collect{it[1]} | cluster_transcripts | annotate
-    txns = cluster_transcripts.out.map{it[0]}
+    assemble.out.collect{it -> it[1]} | cluster_transcripts | annotate
+    txns = cluster_transcripts.out.map{it -> it[0]}
 
     if (params.preset == "illumina") {
         // build the Salmon index
@@ -100,7 +100,7 @@ workflow {
     merge_counts(quantify.collect())
 
     // quality overview
-    multiqc(preprocess.out.map{it[2]}.collect(), quantify.collect())
+    multiqc(preprocess.out.map{it -> it[2]}.collect(), quantify.collect())
 }
 
 

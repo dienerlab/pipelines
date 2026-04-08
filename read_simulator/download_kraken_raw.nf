@@ -12,13 +12,13 @@ workflow {
     good_levels = params.assembly_levels.split(",")
     cats = params.dbs.split(",")
 
-    Channel.from(cats).set{summaries}
+    channel.from(cats).set{summaries}
     summaries | assembly_summaries
 
     assembly_summaries.out
-        .map{it.text}
+        .map{it -> it.text}
         .splitCsv(header: true, sep: "\t", skip: 1)
-        .filter{ good_levels.contains(it.assembly_level) }
+        .filter{ it -> good_levels.contains(it.assembly_level) }
         .map{
             row -> tuple(
                 row.ftp_path.split("/").last(),

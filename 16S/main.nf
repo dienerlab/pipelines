@@ -60,7 +60,7 @@ workflow {
     }
 
     if (params.manifest) {
-        manifest = Channel.fromPath("${params.manifest}")
+        manifest = channel.fromPath("${params.manifest}")
     } else {
         manifest = find_files()
     }
