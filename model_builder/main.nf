@@ -141,10 +141,12 @@ process build_gapseq {
     GSTMP=\$(mktemp -d -t gapseq_XXXXXXXXXX)
     trap "rm -rf \$GSTMP" EXIT
 
-    gapseq find -O -p all -A ${params.aligner} -T \$GSTMP -K 1 -v 1 -t ${domain} -b ${params.gapseq_good_score} ${assembly} > ${id}.log || true
+    cp ${assembly} ${id}.fna
+
+    gapseq find -O -p all -A ${params.aligner} -T \$GSTMP -K 1 -v 1 -t ${domain} -b ${params.gapseq_good_score} ${id}.fna > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
-    TMPDIR=\$GSTMP gapseq find-transport -K 1 -v 1 -A ${params.aligner} -b ${params.gapseq_good_score} ${assembly} > ${id}.log || true
+    TMPDIR=\$GSTMP gapseq find-transport -K 1 -v 1 -A ${params.aligner} -b ${params.gapseq_good_score} ${id}.fna > ${id}.log || true
     grep "Running time:" ${id}.log || exit 1
 
     (( \$(grep -c "good_blast" ${id}-all-Reactions.tbl) >= ${params.min_reactions} )) || exit 1
@@ -153,7 +155,7 @@ process build_gapseq {
     gapseq draft \
       -r ${id}-all-Reactions.tbl \
       -t ${id}-Transporter.tbl \
-      -c ${assembly} \
+      -c ${id}.fna \
       -b ${domain == 'Archaea' ? 'Archaea' : 'auto'} \
       -u ${params.gapseq_good_score} \
       -l ${params.gapseq_bad_score} \
