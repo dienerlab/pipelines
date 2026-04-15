@@ -44,6 +44,53 @@ def helpMessage() {
 
 params.help = false
 
+
+workflow {
+  // Show help message
+  if (params.help) {
+      helpMessage()
+      exit 0
+  }
+
+  channel
+    .fromPath("${params.genomes}")
+    .splitCsv(header: true)
+    .map{row -> tuple(row.id, row.lineage ==~ "d__Archaea" ? "Archaea" : "Bacteria", "${params.data_dir}/raw/${row.assembly}")}
+    .set{genomes}
+
+  def models = null
+  if (params.method == "carveme") {
+    init_carveme()
+    find_genes(genomes)
+    build_carveme(find_genes.out.combine(init_carveme.out))
+    models = build_carveme.out
+  } else if (params.method == "gapseq") {
+    build_gapseq(genomes)
+    build_gapseq.out.collect{it -> tuple(it[2], it[3], it[4])} | merge_gapseq
+    gapfill_gapseq(build_gapseq.out.map{it -> tuple(it[0], it[1])})
+    models = gapfill_gapseq.out
+  } else {
+    error "Method must be either `carveme` or `gapseq`."
+  }
+
+  if (params.simulate) {
+    models | fba
+    exchanges = fba.out.map{it -> it[1]}.collect()
+    rates = fba.out.map{it -> it[2]}.collect()
+    summarize_fba(exchanges, rates)
+  }
+
+  if (params.check) {
+    check_model(models)
+  }
+
+  models
+    .map{it -> it[1]}
+    .collect()
+    .set{all_models}
+  model_db(all_models, channel.fromPath("${params.genomes}"))
+}
+
 process init_carveme {
   cpus 1
   publishDir "${params.data_dir}", mode: "copy", overwrite: true
@@ -132,8 +179,7 @@ process build_gapseq {
   tuple val(id), val(domain), path(assembly)
 
   output:
-  tuple val("${id}"), path("${id}-draft.RDS"), path("${id}-rxnWeights.RDS"),
-        path("${id}-rxnXgenes.RDS"), path("${id}-all-Pathways.tbl"),
+  tuple val("${id}"), path("${id}-draft.RDS"), path("${id}-all-Pathways.tbl"),
         path("${id}-all-Reactions.tbl"), path("${id}-Transporter.tbl")
 
   script:
@@ -172,9 +218,7 @@ process gapfill_gapseq {
   publishDir "${params.data_dir}/gapseq_models", mode: "copy", overwrite: true
 
   input:
-  tuple val(id), path(draft), path(weights),
-        path(rxnXgenes), path(pathways),
-        path(rxns), path(transporters)
+  tuple val(id), path(draft)
 
   output:
   tuple val(id), path("${id}.xml.gz")
@@ -183,13 +227,13 @@ process gapfill_gapseq {
   if (params.medium)
     """
     cp ${params.data_dir}/${params.medium} medium.csv
-    gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} -k ${params.growth}
+    gapseq fill -m ${draft} -n medium.csv -b ${params.gapseq_bad_score} -k ${params.growth}
     gzip ${id}.xml
     """
   else
     """
     gapseq medium -m ${draft} -p ${pathways} -o medium.csv ${params.anaerobic ? "-c cpd00007:0" : ""}
-    gapseq fill -m ${draft} -n medium.csv -c ${weights} -b ${params.gapseq_bad_score} -g ${rxnXgenes} -k ${params.growth}
+    gapseq fill -m ${draft} -n medium.csv -b ${params.gapseq_bad_score} -k ${params.growth}
     gzip ${id}.xml
     """
 }
@@ -406,50 +450,4 @@ process model_db {
     )
   """
 
-}
-
-workflow {
-  // Show help message
-  if (params.help) {
-      helpMessage()
-      exit 0
-  }
-
-  channel
-    .fromPath("${params.genomes}")
-    .splitCsv(header: true)
-    .map{row -> tuple(row.id, row.lineage ==~ "d__Archaea" ? "Archaea" : "Bacteria", "${params.data_dir}/raw/${row.assembly}")}
-    .set{genomes}
-
-  def models = null
-  if (params.method == "carveme") {
-    init_carveme()
-    find_genes(genomes)
-    build_carveme(find_genes.out.combine(init_carveme.out))
-    models = build_carveme.out
-  } else if (params.method == "gapseq") {
-    build_gapseq(genomes)
-    build_gapseq.out.collect{it -> tuple(it[4], it[5], it[6])} | merge_gapseq
-    gapfill_gapseq(build_gapseq.out)
-    models = gapfill_gapseq.out
-  } else {
-    error "Method must be either `carveme` or `gapseq`."
-  }
-
-  if (params.simulate) {
-    models | fba
-    exchanges = fba.out.map{it -> it[1]}.collect()
-    rates = fba.out.map{it -> it[2]}.collect()
-    summarize_fba(exchanges, rates)
-  }
-
-  if (params.check) {
-    check_model(models)
-  }
-
-  models
-    .map{it -> it[1]}
-    .collect()
-    .set{all_models}
-  model_db(all_models, channel.fromPath("${params.genomes}"))
 }
