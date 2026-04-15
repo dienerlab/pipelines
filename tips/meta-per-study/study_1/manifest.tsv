@@ -1,0 +1,5 @@
+sample-id	forward-absolute-filepath	reverse-absolute-filepath
+sample-1	$PWD/raw/sample1_R1.fastq.gz	$PWD/raw/sample1_R2.fastq.gz
+sample-2	$PWD/raw/sample2_R1.fastq.gz	$PWD/raw/sample2_R2.fastq.gz
+sample-3	$PWD/raw/sample3_R1.fastq.gz	$PWD/raw/sample3_R2.fastq.gz
+sample-4	$PWD/raw/sample4_R1.fastq.gz	$PWD/raw/sample4_R2.fastq.gz
