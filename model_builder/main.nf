@@ -202,7 +202,7 @@ process build_gapseq {
       -r ${id}-all-Reactions.tbl \
       -t ${id}-Transporter.tbl \
       -c ${id}.fna \
-      -b ${domain == 'Archaea' ? 'Archaea' : 'auto'} \
+      -b ${domain == 'Archaea' ? 'archaea' : 'auto'} \
       -u ${params.gapseq_good_score} \
       -l ${params.gapseq_bad_score} \
       -p ${id}-all-Pathways.tbl
