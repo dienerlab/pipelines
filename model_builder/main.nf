@@ -171,16 +171,19 @@ process build_gapseq {
   memory {1.6.GB * task.attempt}
   time {10.h * task.attempt}
   maxRetries 1
-  publishDir "${params.data_dir}/gapseq_draft"
+  publishDir "${params.data_dir}/gapseq_draft", pattern: "*-draft.RDS"
+  publishDir "${params.data_dir}/tables", pattern: "*.tbl"
+  publishDir "${params.data_dir}/proteins", pattern: "*.{faa.gz,gff}"
 
-  errorStrategy { task.attempt < 2 ? "retry" : "ignore" }
+  //errorStrategy { task.attempt < 2 ? "retry" : "ignore" }
 
   input:
   tuple val(id), val(domain), path(assembly)
 
   output:
   tuple val("${id}"), path("${id}-draft.RDS"), path("${id}-all-Pathways.tbl"),
-        path("${id}-all-Reactions.tbl"), path("${id}-Transporter.tbl")
+        path("${id}-all-Reactions.tbl"), path("${id}-Transporter.tbl"), 
+        path("${id}.faa.gz"), path("${id}.gff")
 
   script:
   """
@@ -201,7 +204,6 @@ process build_gapseq {
     gapseq draft \
       -r ${id}-all-Reactions.tbl \
       -t ${id}-Transporter.tbl \
-      -c ${id}.fna \
       -b ${domain == 'Archaea' ? 'archaea' : 'auto'} \
       -u ${params.gapseq_good_score} \
       -l ${params.gapseq_bad_score} \
@@ -214,7 +216,7 @@ process gapfill_gapseq {
   memory {3.GB * task.attempt}
   time {6.h * task.attempt}
   maxRetries 1
-  errorStrategy { task.attempt < 2 ? "retry" : "ignore" }
+  //errorStrategy { task.attempt < 2 ? "retry" : "ignore" }
   publishDir "${params.data_dir}/gapseq_models", mode: "copy", overwrite: true
 
   input:
@@ -226,12 +228,20 @@ process gapfill_gapseq {
   script:
   if (params.medium)
     """
+    TMPDIR=. GSTMP=\$(mktemp -d -t gapseq_XXXXXXXXXX)
+    trap "rm -rf \$GSTMP" EXIT
+    export TMPDIR=\$GSTMP
+
     cp ${params.data_dir}/${params.medium} medium.csv
     gapseq fill -m ${draft} -n medium.csv -b ${params.gapseq_bad_score} -k ${params.growth}
     gzip ${id}.xml
     """
   else
     """
+    TMPDIR=. GSTMP=\$(mktemp -d -t gapseq_XXXXXXXXXX)
+    trap "rm -rf \$GSTMP" EXIT
+    export TMPDIR=\$GSTMP
+
     gapseq medium -m ${draft} -p ${pathways} -o medium.csv ${params.anaerobic ? "-c cpd00007:0" : ""}
     gapseq fill -m ${draft} -n medium.csv -b ${params.gapseq_bad_score} -k ${params.growth}
     gzip ${id}.xml
@@ -248,7 +258,7 @@ process merge_gapseq {
   path(files)
 
   output:
-  tuple path("pathways.csv.gz"), path("transporters.csv.gz")
+  path("*.csv.gz")
 
   script:
   """
@@ -263,7 +273,7 @@ process merge_gapseq {
     if "bitscore" in df.columns:
       df = df[df.bitscore > ${params.gapseq_bad_score}]
     if "Prediction" in df.columns:
-      df = df[df.Prediction == "true"]
+      df = df[df.Prediction == True]
     id = fi.split("/")[-1].split("-")[0]
     df["sample_id"] = id
     return df
@@ -274,7 +284,7 @@ process merge_gapseq {
     "reactions": glob.glob("*-all-Reactions.tbl"),
     "transporters": glob.glob("*-Transporter.tbl")
   }
-  for what in ["pathways", "transporters"]:
+  for what in ["pathways", "reactions", "transporters"]:
     tables = []
     for fi in files[what]:
       tables.append(read_gapseq(fi))
@@ -337,7 +347,7 @@ process fba {
 
   exids = [r.id for r in model.exchanges]
   if "${params.medium}" != "null":
-    media_df = pd.read_csv("${params.medium}", sep=sep).rename(
+    media_df = pd.read_csv("${params.data_dir}/${params.medium}", sep=sep).rename(
       columns={"maxFlux": "flux", "compounds": "compound"})
     if "flux" not in media_df.columns:
       media_df["flux"] = 0.1
