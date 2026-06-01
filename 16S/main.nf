@@ -7,8 +7,8 @@ params.merge = true
 params.min_overlap = 8
 params.forward_only = false
 params.data_dir = "${launchDir}/data"
-params.taxa_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r220_genus.fa.gz"
-params.species_db = "${launchDir}/refs/GTDB_bac120_arc53_ssu_r220_species.fa.gz"
+params.taxa_db = "${launchDir}/refs/silva_nr99_v138.2_toSpecies_trainset.fa.gz"
+params.species_db = "${launchDir}/refs/silva_v138.2_assignSpecies.fa.gz"
 params.threads = 16
 params.manifest = null
 params.pattern = "illumina"
@@ -50,14 +50,13 @@ def helpMessage() {
     """.stripIndent()
 }
 
-params.help = false
-
 workflow {
     // Show help message
     if (params.help) {
         helpMessage()
         exit 0
     }
+    println(params)
 
     if (params.manifest) {
         manifest = channel.fromPath("${params.manifest}")
@@ -84,9 +83,15 @@ process find_files {
 
     library(miso)
 
+    formats <- file_formats
+    formats[["patho"]] <- list(
+        pattern="([A-Za-z0-9\\\\-]+)__IonXpress_(\\\\d+)_.+.basecaller.fastq.gz",
+        annotations=c("patho_id", "id")
+    )
+    
     files <- find_read_files(
         "${params.data_dir}/raw",
-        format=file_formats[["${params.pattern}"]],
+        format=formats[["${params.pattern}"]],
         dirs_are_runs = T
     )
 
