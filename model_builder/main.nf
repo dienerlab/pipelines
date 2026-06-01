@@ -67,7 +67,7 @@ workflow {
   } else if (params.method == "gapseq") {
     build_gapseq(genomes)
     build_gapseq.out.collect{it -> tuple(it[2], it[3], it[4])} | merge_gapseq
-    gapfill_gapseq(build_gapseq.out.map{it -> tuple(it[0], it[1])})
+    gapfill_gapseq(build_gapseq.out.map{it -> tuple(it[0], it[1], it[2])})
     models = gapfill_gapseq.out
   } else {
     error "Method must be either `carveme` or `gapseq`."
@@ -220,7 +220,7 @@ process gapfill_gapseq {
   publishDir "${params.data_dir}/gapseq_models", mode: "copy", overwrite: true
 
   input:
-  tuple val(id), path(draft)
+  tuple val(id), path(draft), path(pathways)
 
   output:
   tuple val(id), path("${id}.xml.gz")
@@ -329,7 +329,7 @@ process fba {
   input:
   tuple val(id), path(model)
 
-  output:
+  output:1
   tuple val(id), path("${id}_exchanges.csv"), path("${id}_growth_rate.csv")
 
   script:
