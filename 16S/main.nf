@@ -7,8 +7,9 @@ params.merge = true
 params.min_overlap = 8
 params.forward_only = false
 params.data_dir = "${launchDir}/data"
-params.taxa_db = "${launchDir}/refs/silva_nr99_v138.2_toSpecies_trainset.fa.gz"
-params.species_db = "${launchDir}/refs/silva_v138.2_assignSpecies.fa.gz"
+params.refs = "${launchDir}/refs"
+params.taxa_db = "${params.refs}/silva_nr99_v138.2_toSpecies_trainset.fa.gz"
+params.species_db = "${params.refs}/silva_v138.2_assignSpecies.fa.gz"
 params.threads = 16
 params.manifest = null
 params.pattern = "illumina"
@@ -51,6 +52,8 @@ def helpMessage() {
 }
 
 workflow {
+    main:
+
     // Show help message
     if (params.help) {
         helpMessage()
@@ -64,12 +67,40 @@ workflow {
         manifest = find_files()
     }
     manifest | quality_control | trim | denoise | tables
-    denoise.output | tree
+    denoise.out | tree
+
+    publish:
+    results = quality_control.out
+        .mix(trim.out)
+        .mix(denoise.out)
+        .mix(tables.out)
+        .mix(tree.out)
+}
+
+output {
+    results {
+        path { file ->
+            def name = file.getName()
+            if (name.endsWith(".png")) {
+                return "${params.data_dir}/figures/${name}"
+            }
+            else if (name.endsWith(".rds")) {
+                return "${params.data_dir}/r_data/${name}"
+            }
+            else if (name.endsWith(".log")) {
+                return "${params.data_dir}/logs/${name}"
+            }
+            else {
+                return "${name}"
+            }
+        }
+        mode "copy"
+        overwrite true
+    }
 }
 
 
 process find_files {
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
     cpus 1
     memory "4 GB"
     time "10 m"
@@ -88,7 +119,7 @@ process find_files {
         pattern="([A-Za-z0-9\\\\-]+)__IonXpress_(\\\\d+)_.+.basecaller.fastq.gz",
         annotations=c("patho_id", "id")
     )
-    
+
     files <- find_read_files(
         "${params.data_dir}/raw",
         format=formats[["${params.pattern}"]],
@@ -105,7 +136,6 @@ process find_files {
 }
 
 process quality_control {
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
     cpus params.threads
     memory "32 GB"
     time "8h"
@@ -171,7 +201,6 @@ process quality_control {
 }
 
 process trim {
-    publishDir "${params.data_dir}"
     cpus params.threads
     memory "16 GB"
     time "24h"
@@ -212,7 +241,6 @@ process trim {
 }
 
 process denoise {
-    publishDir "${params.data_dir}/denoise"
     cpus params.threads
     memory "64 GB"
     time "2d"
@@ -254,8 +282,6 @@ process denoise {
 }
 
 process tree {
-    publishDir "${params.data_dir}", mode: 'copy', overwrite: true
-
     cpus params.threads
     memory "64 GB"
     time "24h"
@@ -311,7 +337,6 @@ process tree {
 
 
 process tables {
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
     cpus 1
     memory "16 GB"
     time "1h"
