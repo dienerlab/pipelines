@@ -14,7 +14,7 @@ nav:
       - Binning: mgx/binning.md
     - Metatranscriptomics:
       - reference-based: mtx/ref.md
-      - de novo: mtx/denovo.nf
+      - de novo: mtx/denovo.md
     - Isolate Sequencing: isolates.md
     - Metabolic Models: metmod.md
     - Read Simulator: sim.md
