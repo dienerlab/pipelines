@@ -182,7 +182,7 @@ process build_gapseq {
 
   output:
   tuple val("${id}"), path("${id}-draft.RDS"), path("${id}-all-Pathways.tbl"),
-        path("${id}-all-Reactions.tbl"), path("${id}-Transporter.tbl"), 
+        path("${id}-all-Reactions.tbl"), path("${id}-Transporter.tbl"),
         path("${id}.faa.gz"), path("${id}.gff")
 
   script:
@@ -329,7 +329,7 @@ process fba {
   input:
   tuple val(id), path(model)
 
-  output:1
+  output:
   tuple val(id), path("${id}_exchanges.csv"), path("${id}_growth_rate.csv")
 
   script:

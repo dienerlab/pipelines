@@ -160,7 +160,7 @@ process quality_control {
 
     flog.appender(appender.file("qc.log"))
 
-    files <- fread("${manifest}")
+    files <- fread("${manifest}")[, "id" := as.character(id)]
     if (!file.exists(files[["forward"]][1])) {
         flog.warn("Files do not seem to exist, looking in %s.", PREFIX)
         files[, "forward" := file.path(PREFIX, forward)]
@@ -220,7 +220,7 @@ process trim {
     flog.appender(appender.file("trim.log"))
 
     qc <- readRDS("${qc}")
-    manifest <- fread("${manifest}")
+    manifest <- fread("${manifest}")[, "id" := as.character(id)]
 
     if ("reverse" %in% names(manifest)) {
         trunc <- c(${params.trunc_forward}, ${params.trunc_reverse})
@@ -249,7 +249,7 @@ process denoise {
     tuple path(procced), path(artifact), path(log)
 
     output:
-    tuple path("read_stats.csv"), path("denoised.rds"), path("phyloseq.rds"), path("denoise.log")
+    tuple path("read_stats.csv"), path("denoised.rds"), path("phyloseq.rds"), path("denoise.log"), path("denoise_error_model_*.png")
 
     script:
     """
@@ -278,6 +278,15 @@ process denoise {
     rownames(sdata) <- sdata[, "id"]
     ps <- as_phyloseq(denoised, sdata)
     saveRDS(ps, "phyloseq.rds")
+
+    for (run in names(denoised[["errors"]])) {
+        pl <- denoised[["errors"]][[run]]
+        ggplot2::ggsave(
+            paste0("denoise_error_model_", run, ".png"),
+            pl = pl + theme_minimal(),
+            width = 8, height = 4, dpi = 300
+        )
+    }
     """
 }
 
