@@ -8,4 +8,6 @@ This lists general release notes for the pipelines.
 
 Revamped the documentation and actions.
 
+Adapted model builder workflow to GapSeq 2.0+ with diamond as the default aligner.
+
 **Minor Changes**
