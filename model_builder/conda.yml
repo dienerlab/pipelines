@@ -2,9 +2,8 @@ name: model_builder
 channels:
   - conda-forge
   - bioconda
-  - default
 dependencies:
-  - python>=3.10
+  - python>=3.12
   - nextflow
   - diamond
   - cobra

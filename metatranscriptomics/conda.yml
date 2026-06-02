@@ -2,9 +2,8 @@ name: metagenomics
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  - python>=3.10
+  - python>=3.12
   - nextflow>=20.10.0
   - fastp
   - megahit
