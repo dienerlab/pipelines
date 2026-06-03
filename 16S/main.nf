@@ -71,27 +71,27 @@ workflow {
 
     publish:
     results = quality_control.out
-        .mix(trim.out)
+        .mix(trim.out.map{it -> tuple(it[1], it[2])})
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
+        .flatten()
 }
 
 output {
     results {
         path { file ->
-            def name = file.getName()
-            if (name.endsWith(".png")) {
-                return "${params.data_dir}/figures/${name}"
+            if (file.extension == "png") {
+                return "${params.data_dir}/figures/"
             }
-            else if (name.endsWith(".rds")) {
-                return "${params.data_dir}/r_data/${name}"
+            else if (file.extension == "rds") {
+                return "${params.data_dir}/r_data/"
             }
-            else if (name.endsWith(".log")) {
-                return "${params.data_dir}/logs/${name}"
+            else if (file.extension == "log") {
+                return "${params.data_dir}/logs/"
             }
             else {
-                return "${name}"
+                return "${params.data_dir}"
             }
         }
         mode "copy"
