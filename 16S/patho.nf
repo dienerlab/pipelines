@@ -1,24 +1,25 @@
 params.trim_left = 3
-params.read_length = 250
+params.read_length = 280
 params.trunc_forward = params.read_length - 5
 params.trunc_reverse = params.read_length - 20
-params.maxEE = 2
+params.maxEE = 8
 params.merge = true
 params.min_overlap = 8
 params.forward_only = false
-params.data_dir = "${launchDir}/data"
+params.data_dir = "${launchDir}"
 params.refs = env("DLP") ? "/home/isilon/dienerlab/refs" : "${launchDir}/refs"
 params.taxa_db = "${params.refs}/silva_nr99_v138.2_toGenus_trainset.fa.gz"
 params.species_db = "${params.refs}/silva_v138.2_assignSpecies.fa.gz"
 params.threads = 16
 params.manifest = null
-params.pattern = "illumina"
+params.pattern = "patho"
+params.run = null
 
 include { find_files; quality_control; trim; denoise; tables; tree } from "./modules/16S.nf"
 
 def helpMessage() {
     log.info"""
-    ~~~ Diener Lab 16S Workflow ~~~
+    ~~~ Diener Lab 16S Workflow for Pathology Sequencing ~~~
 
     Usage:
     A run using all,default parameters can be started with:
@@ -61,22 +62,19 @@ workflow {
         helpMessage()
         exit 0
     }
-    println(params)
 
-    if (params.manifest) {
-        manifest = tuple(
-            channel.fromPath("${params.manifest}"),
-            channel.fromPath("raw")
-        )
-    } else {
-        manifest = find_files(channel.fromPath("${params.data_dir}/raw"))
+    if (!params.run) {
+        log.error "No run specified. Please provide a run name with --run."
+        exit 1
     }
 
+    manifest = download_raw_files | find_files
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
     publish:
-    results = quality_control.out
+    results = find_files.out
+        .mix(quality_control.out)
         .mix(trim.out.map{it -> tuple(it[1], it[2])})
         .mix(denoise.out)
         .mix(tables.out)
@@ -96,6 +94,9 @@ output {
             else if (file.extension == "log") {
                 return "${params.data_dir}/logs/"
             }
+            else if (file.extension == "tree") {
+                return "${params.data_dir}/trees/"
+            }
             else {
                 return "${params.data_dir}"
             }
@@ -104,3 +105,41 @@ output {
         overwrite true
     }
 }
+
+process download_raw_files {
+    cpus 1
+    memory "4 GB"
+    time "1h"
+
+    output:
+    path("raw")
+
+    script:
+    """
+    mkdir raw
+    rclone copy -P --recursive \
+        "nextcloud:/Analysisresult_Sequenzierung_Hygiene_16s_Diener/input_2026Q1/${params.run}" \
+        raw
+    """
+}
+
+process report {
+    cpus 1
+    memory "8 GB"
+    time "1h"
+
+    input:
+    tuple path(stats), path(denoised), path(ps), path(log)
+    tuple path(tree), path(ph_with_tree), path(tree_log)
+    tuple path(manifest), path(raw_dir), path(qc), path(qc_log), path(qc_plots)
+
+    output:
+    path("report.html")
+
+    script:
+    """
+    quarto render --execute --to html --output report.html ${projectDir}/report.qmd
+    """
+}
+
+
