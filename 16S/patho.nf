@@ -6,7 +6,6 @@ params.maxEE = 8
 params.merge = true
 params.min_overlap = 8
 params.forward_only = false
-params.data_dir = "${launchDir}"
 params.refs = env("DLP") ? "/home/isilon/dienerlab/refs" : "${launchDir}/refs"
 params.taxa_db = "${params.refs}/silva_nr99_v138.2_toGenus_trainset.fa.gz"
 params.species_db = "${params.refs}/silva_v138.2_assignSpecies.fa.gz"
@@ -14,6 +13,8 @@ params.threads = 16
 params.manifest = null
 params.pattern = "patho"
 params.run = null
+params.data_dir = "${launchDir}/${params.run.split("__")[0].replaceAll("-", "")}"
+
 
 include { find_files; quality_control; trim; denoise; tables; tree } from "./modules/16S.nf"
 
@@ -68,9 +69,19 @@ workflow {
         exit 1
     }
 
+    log.info "Will save results to '${params.data_dir}.'"
+
     manifest = download_raw_files | find_files
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
+
+    report(
+        channel.fromPath("${projectDir}/report.qmd"),
+        denoise.out,
+        tree.out,
+        quality_control.out
+    )
+
 
     publish:
     results = find_files.out
@@ -79,6 +90,7 @@ workflow {
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
+        .mix(report.out)
         .flatten()
 }
 
@@ -98,7 +110,7 @@ output {
                 return "${params.data_dir}/trees/"
             }
             else {
-                return "${params.data_dir}"
+                return "${params.data_dir}/"
             }
         }
         mode "copy"
@@ -129,6 +141,7 @@ process report {
     time "1h"
 
     input:
+    path(quarto)
     tuple path(stats), path(denoised), path(ps), path(log)
     tuple path(tree), path(ph_with_tree), path(tree_log)
     tuple path(manifest), path(raw_dir), path(qc), path(qc_log), path(qc_plots)
@@ -138,7 +151,7 @@ process report {
 
     script:
     """
-    quarto render --execute --to html --output report.html ${projectDir}/report.qmd
+    quarto render --execute --to html --output report.html quarto
     """
 }
 
