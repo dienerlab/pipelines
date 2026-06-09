@@ -182,13 +182,15 @@ process denoise {
     ps <- as_phyloseq(denoised, sdata)
     saveRDS(ps, "phyloseq.rds")
 
-    for (run in names(denoised[["errors"]])) {
-        p <- denoised[["errors"]][[run]]
-        ggsave(
-            paste0("denoise_error_model_", run, ".png"),
-            pl = p + theme_minimal(),
-            width = 8, height = 4, dpi = 300
-        )
+    for (run in names(denoised[["error_plots"]])) {
+        pls <- denoised[["error_plots"]][[run]]
+        for(d in names(pls)) {
+            ggsave(
+                paste0("denoise_error_model_", run, "_", d, ".png"),
+                pl = pls[["forward"]] + theme_minimal(),
+                width = 12, height = 10, dpi=300
+            )
+        }
     }
     """
 }
