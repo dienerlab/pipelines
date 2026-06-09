@@ -13,7 +13,7 @@ params.threads = 16
 params.manifest = null
 params.pattern = "patho"
 params.run = null
-params.data_dir = "${launchDir}/${params.run.split("__")[0].replaceAll("-", "")}"
+params.data_dir = "${launchDir}/${params.run.split('__')[0].replaceAll('-'', '')}"
 
 
 include { find_files; quality_control; trim; denoise; tables; tree } from "./modules/16S.nf"
@@ -69,7 +69,7 @@ workflow {
         exit 1
     }
 
-    log.info "Will save results to '${params.data_dir}.'"
+    log.info "Will save results to '${params.data_dir}'."
 
     manifest = download_raw_files | find_files
     manifest | quality_control | trim | denoise | tables
