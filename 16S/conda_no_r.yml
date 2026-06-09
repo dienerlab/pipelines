@@ -5,3 +5,5 @@ channels:
 dependencies:
   - nextflow
   - fasttree
+  - rclone
+  - quarto

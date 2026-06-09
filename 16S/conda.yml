@@ -5,6 +5,8 @@ channels:
 dependencies:
   - nextflow
   - fasttree
+  - rclone
+  - quarto
   - r-base
   - r-data.table
   - r-remotes
