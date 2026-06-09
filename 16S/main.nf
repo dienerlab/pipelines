@@ -256,6 +256,7 @@ process denoise {
     #!/usr/bin/env Rscript
     library(miso)
     library(futile.logger)
+    library(ggplot2)
 
     flog.appender(appender.file("denoise.log"))
 
@@ -280,10 +281,10 @@ process denoise {
     saveRDS(ps, "phyloseq.rds")
 
     for (run in names(denoised[["errors"]])) {
-        pl <- denoised[["errors"]][[run]]
-        ggplot2::ggsave(
+        p <- denoised[["errors"]][[run]]
+        ggsave(
             paste0("denoise_error_model_", run, ".png"),
-            pl = pl + theme_minimal(),
+            pl = p + theme_minimal(),
             width = 8, height = 4, dpi = 300
         )
     }
