@@ -13,7 +13,7 @@ params.threads = 16
 params.manifest = null
 params.pattern = "patho"
 params.run = null
-params.data_dir = "${launchDir}/data"
+params.data_dir = "${launchDir}/${params.run}"
 
 
 include { find_files; quality_control; trim; denoise; tables; tree } from "./modules/16S.nf"
