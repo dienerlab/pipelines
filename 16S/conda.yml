@@ -7,6 +7,7 @@ dependencies:
   - fasttree
   - rclone
   - quarto
+  - discord.py
   - r-base
   - r-data.table
   - r-remotes
