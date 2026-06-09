@@ -12,8 +12,8 @@ params.species_db = "${params.refs}/silva_v138.2_assignSpecies.fa.gz"
 params.threads = 16
 params.manifest = null
 params.pattern = "patho"
-params.run = null
-params.data_dir = "${launchDir}/${params.run}"
+params.run = "latest"
+params.data_dir = "${launchDir}/${params.run.replaceAll('-', '').split('__')[0]}"
 
 
 include { find_files; quality_control; trim; denoise; tables; tree } from "./modules/16S.nf"
@@ -76,12 +76,14 @@ workflow {
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
+    /*
     report(
         channel.fromPath("${projectDir}/report.qmd"),
         denoise.out,
         tree.out,
         quality_control.out
     )
+    */
 
 
     publish:
@@ -91,7 +93,6 @@ workflow {
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
-        .mix(report.out)
         .flatten()
 }
 
@@ -130,11 +131,12 @@ process download_raw_files {
     script:
     """
     mkdir raw
-    rclone copy -P --recursive \
+    rclone copy -P \
         "nextcloud:/Analysisresult_Sequenzierung_Hygiene_16s_Diener/input_2026Q1/${params.run}" \
         raw
     """
 }
+
 
 process report {
     cpus 1
@@ -142,18 +144,16 @@ process report {
     time "1h"
 
     input:
-    path(quarto)
-    tuple path(stats), path(denoised), path(ps), path(log)
-    tuple path(tree), path(ph_with_tree), path(tree_log)
-    tuple path(manifest), path(raw_dir), path(qc), path(qc_log), path(qc_plots)
+    tuple path(template), path(denoised), path(ps_with_tree), path(tree_log), path(qc_plots)
 
     output:
     path("report.html")
 
     script:
     """
-    quarto render --execute --to html --output report.html quarto
+    quarto render --execute --to html --output report.html ${template}
     """
 }
+
 
 

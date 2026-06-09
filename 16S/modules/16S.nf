@@ -201,7 +201,7 @@ process tree {
     time "24h"
 
     input:
-    tuple path(stats), path(denoised), path(ps), path(log)
+    tuple path(stats), path(denoised), path(ps), path(log), path(error_plots)
 
     output:
     tuple path("asvs.tree"), path("phyloseq_with_tree.rds"), path("tree.log")
@@ -256,7 +256,7 @@ process tables {
     time "1h"
 
     input:
-    tuple path(stats), path(arti), path(ps), path(log)
+    tuple path(stats), path(arti), path(ps), path(log), path(error_plots)
 
     output:
     tuple path("asvs.csv"), path("taxonomy.csv")
