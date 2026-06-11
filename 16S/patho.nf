@@ -131,8 +131,9 @@ process download_raw_files {
     script:
     """
     mkdir raw
+    pre=\$(Rscript -e "paste0(format(Sys.Date(), '%Y'), quarters(Sys.Date())) |> cat()")
     rclone copy -P \
-        "nextcloud:/Analysisresult_Sequenzierung_Hygiene_16s_Diener/input_2026Q1/${params.run}" \
+        "nextcloud:/Analysisresult_Sequenzierung_Hygiene_16s_Diener/input_\$pre/${params.run}" \
         raw
     """
 }
