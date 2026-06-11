@@ -76,14 +76,13 @@ workflow {
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
-    /*
     report(
-        channel.fromPath("${projectDir}/report.qmd"),
-        denoise.out,
-        tree.out,
-        quality_control.out
+        channel.fromPath("${projectDir}/report.qmd")
+        .mix(denoise.out.map{it -> it[1]})
+        .mix(tree.out.map{it -> it[1]})
+        .mix(quality_control.out.map{it -> it[2]})
+        .flatten()
     )
-    */
 
 
     publish:
@@ -93,6 +92,7 @@ workflow {
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
+        .mix(report.out)
         .flatten()
 }
 
@@ -144,7 +144,7 @@ process report {
     time "1h"
 
     input:
-    tuple path(template), path(denoised), path(ps_with_tree), path(tree_log), path(qc_plots)
+    tuple path(template), path(denoised), path(ps_with_tree), path(qc)
 
     output:
     path("report.html")
