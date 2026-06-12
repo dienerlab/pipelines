@@ -1,0 +1,118 @@
+---
+title: "basic"
+output: html
+---
+
+```{r}
+library(miso)
+library(tidyverse)
+rdata = "r_data"
+
+AMPLEN = 806 - 515
+
+theme_minimal() |> theme_set()
+```
+
+# General statistics
+
+Let's read in the quality control results and check some basics.
+
+```{r}
+qc <- readRDS(file.path(rdata, "qc.rds"))
+```
+
+## Error plots
+
+We start by looking at the qualities. We cut at 290 bp as this is the amplicon size.
+
+```{r}
+qc$quality_plot + xlim(0, AMPLEN)
+```
+
+## Entropy
+
+This is to checkl that there are no adapters there anymore. This should go up across the reads.
+
+```{r}
+qc$entropy_plot + xlim(0, AMPLEN)
+```
+
+## Length checks
+
+Finally we check for the lengths of the amplicons. Shorter or longer amplicons are a sign of unspecific amplification
+or contamination with mitochondria or chloroplasts.
+
+```{r}
+qc$length_plot +
+  scale_fill_continuous(palette=viridisLite::magma(100)) +
+  geom_vline(xintercept=AMPLEN, linetype="dashed", color="yellow", linewidth=1)
+```
+
+# Basic analysis
+
+```{r}
+ps <- readRDS(file.path(rdata, "phyloseq_with_tree.rds"))
+man <- readxl::read_excel(Sys.glob("raw/*.xlsx")) |>
+  mutate(Barcode = str_split_i(Barcode, " ", 2), sample_id = `Externe ID`) |>
+  drop_na(sample_id) |>
+  mutate(type = c("sample", "control")[str_detect(sample_id, "pos|neg") + 1])
+sdata <- sample_data(ps) |> as("data.frame")
+sdata <- man |> inner_join(sdata, by=join_by(Barcode==id)) |> as.data.frame()
+rownames(sdata) <- sdata[["Barcode"]]
+sample_data(ps) <- sdata
+sample_names(ps) <- sample_data(ps)[["sample_id"]]
+```
+
+```{r}
+sample_sums(ps) |> enframe("sample", "library_size")
+```
+
+Convert abundances to long tables for ASVs and Genera.
+
+```{r}
+for (ra in rank_names(ps)) {
+  plot_taxa(ps, level=ra)
+  ggsave(paste0("figures/", tolower(ra), "_top12.png"), dpi=300, width=8, height=6)
+}
+
+```
+
+```{r}
+asvs <- taxa_count(ps, lev=NA)[reads > 0][order(sample, -reads, taxa)]
+
+g <- taxa_count(ps, lev="genus", zeros=T)[order(sample, -reads, taxa)]
+mat <- as.matrix(g)
+
+write_csv(asvs, "tables/asv_abundances.csv")
+write_csv(g, "tables/genus_abundances.csv")
+asvs
+```
+
+```{r, fig.width=8, fig.height=24}
+library(ComplexHeatmap)
+
+hm <- Heatmap(
+  log10(mat+0.5)[sort(rownames(mat)),] |> t(),
+  col=viridisLite::magma(256),
+  row_names_max_width = unit(12, "cm"),
+  name="log10(reads)",
+  column_dend_side="bottom",
+  column_names_side="top",
+  column_names_rot=45
+)
+
+png("figures/genus_heatmap.png", width=8, height=24, unit="in", res=300)
+print(hm)
+dev.off()
+
+hm
+```
+
+# Ordination
+
+Quick check hwo samples differ
+
+```{r, fig.width=6, fig.height=4}
+plot_ordination(ps, ord, label="sample_id", color="type)
+ggsave("figures/pcoa.png", dpi=300, width=6, height=4)
+```

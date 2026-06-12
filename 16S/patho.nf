@@ -81,12 +81,11 @@ workflow {
         .mix(denoise.out.map{it -> it[1]})
         .mix(tree.out.map{it -> it[1]})
         .mix(quality_control.out.map{it -> it[2]})
+        .mix(download_raw_files.out)
         .flatten()
     )
 
-
-    publish:
-    results = find_files.out
+    merged = find_files.out
         .mix(quality_control.out)
         .mix(trim.out.map{it -> tuple(it[1], it[2])})
         .mix(denoise.out)
@@ -94,6 +93,12 @@ workflow {
         .mix(tree.out)
         .mix(report.out)
         .flatten()
+
+    upload(merged)
+
+
+    publish:
+    results = merged
 }
 
 output {
@@ -145,16 +150,35 @@ process report {
     time "1h"
 
     input:
-    tuple path(template), path(denoised), path(ps_with_tree), path(qc)
+    tuple path(template), path(denoised), path(ps_with_tree), path(qc), path(raw)
 
     output:
-    path("report.html")
+    tuple path("report.html"), path("figures/*.*"), path("tables/*.*")
 
     script:
     """
+    mkdir r_data && mv *.rds r_data
     quarto render --execute --to html --output report.html ${template}
     """
 }
 
+process upload {
+    cpus 1
+    memory 4.GB
+    time 1.h
+
+    input:
+    path(files)
+
+    script:
+    """
+    mkdir r_data && mv *.rds r_data
+    mkdir tables && mv *.csv tables
+    mkdir figures && mv *.png figures
+    mkdir trees && mv *.tree trees
+    rclone copy -P . \
+        "nextcloud:/wetlab/Patho 16S sequencing/${params.run.replaceAll('-', '').split('__')[0]}"
+    """
+}
 
 
