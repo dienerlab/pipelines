@@ -184,24 +184,6 @@ Attached are the QC results and genus abundances.`,
 	}
 }
 
-// getLogs aggregates and truncates log files for the result message.
-func getLogs(folderDate string) string {
-	files, _ := filepath.Glob(filepath.Join(folderDate, "logs", "*.log"))
-	var sb strings.Builder
-	for _, f := range files {
-		if content, err := os.ReadFile(f); err == nil {
-			sb.WriteString(fmt.Sprintf("--- %s ---\n%s\n", filepath.Base(f), string(content)))
-		} else {
-			log.Printf("Could not read the log %s.", f)
-		}
-	}
-	res := sb.String()
-	if len(res) > 1000 {
-		return res[:1000] + "\n...[Truncated]"
-	}
-	return res
-}
-
 func sendHelp(s *discordgo.Session, cid string) {
 	s.ChannelMessageSendEmbed(cid, &discordgo.MessageEmbed{
 		Title: "🧬 Fanny Bot Help",
