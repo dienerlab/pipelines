@@ -183,7 +183,7 @@ Attached are the logs, QC results and genus abundances.`,
 	})
 
 	if err != nil {
-		log.Printf("Failed to send the final report message.")
+		log.Fatal("Failed to send the final report message.")
 	}
 }
 
