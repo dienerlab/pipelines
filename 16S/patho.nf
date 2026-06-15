@@ -158,7 +158,7 @@ process report {
     script:
     """
     mkdir r_data && mv *.rds r_data
-    quarto render --execute --to html --output report.html ${template}
+    quarto render ${template} --execute --to html --output report.html
     """
 }
 
