@@ -93,7 +93,7 @@ g <- taxa_count(ps, lev="genus", zeros=T)[order(sample, -reads, taxa)]
 mat <- as.matrix(g)
 
 write_csv(asvs, "tables/asv_abundances.csv")
-write_csv(g, "tables/genus_abundances.csv")
+write_csv(g[reads > 0], "tables/genus_abundances.csv")
 asvs
 ```
 
@@ -103,7 +103,7 @@ library(ComplexHeatmap)
 hm <- Heatmap(
   log10(mat+0.5)[sort(rownames(mat)),],
   col=viridisLite::magma(256),
-  col_names_max_width = unit(12, "cm"),
+  column_names_max_height = unit(12, "cm"),
   name="log10(reads)",
   row_dend_side="right",
   row_names_side="left",
