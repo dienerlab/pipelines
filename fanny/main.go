@@ -97,7 +97,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 // handlePatho manages the pathogen pipeline execution and result reporting.
 func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string) {
 	if !pipelineLock.TryLock() {
-		s.ChannelMessageSend(m.ChannelID, "⏳ **Pipeline is currently busy.** Please wait for the current run to finish.")
+		s.ChannelMessageSend(m.ChannelID, "⏳ **Patho Pipeline is currently busy.** Please wait for the current run to finish.")
 		return
 	}
 	defer pipelineLock.Unlock()
@@ -131,7 +131,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	s.ChannelMessageSend(
 		m.ChannelID,
 		fmt.Sprintf(
-			"⏳ **The pipeline is now running** for run '%s'. \n"+
+			"⏳ **The pipeline is now running** for run `%s`. \n"+
 				"You can track the progress on https://cloud.seqera.io/orgs/dienerlab/workspaces/collab/watch.",
 			runArg,
 		),
@@ -151,7 +151,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	// Collect output files
 	var files []*discordgo.File
 	paths := []struct{ name, path string }{
-		{"genus.png", filepath.Join(folderDate, "figures", "genus.png")},
+		{"genus.png", filepath.Join(folderDate, "figures", "genus_top12.png")},
 		{"read_stats.csv", filepath.Join(folderDate, "tables", "read_stats.csv")},
 	}
 	for _, p := range paths {
@@ -159,11 +159,11 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 			files = append(files, &discordgo.File{Name: p.name, Reader: f})
 			defer f.Close()
 		} else {
-			log.Printf("Could not read the file %s.", p)
+			log.Printf("Could not read the file %s.", p.path)
 		}
 	}
 
-	s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+	_, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
 			Title: "🚀 Pathogen Pipeline Finished",
 			Description: fmt.Sprintf(
@@ -181,6 +181,10 @@ Attached are the logs, QC results and genus abundances.`,
 		}},
 		Files: files,
 	})
+
+	if err != nil {
+		log.Printf("Failed to send the final report message.")
+	}
 }
 
 // getLogs aggregates and truncates log files for the result message.

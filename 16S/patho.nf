@@ -115,6 +115,9 @@ output {
             else if (file.extension == "tree") {
                 return "${params.data_dir}/trees/"
             }
+            else if (file.extension == "csv") {
+                return "${params.data_dir}/tables/"
+            }
             else {
                 return "${params.data_dir}/"
             }
