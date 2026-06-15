@@ -83,18 +83,18 @@ workflow {
         .mix(quality_control.out.map{it -> it[2]})
         .mix(download_raw_files.out)
         .collect()
-    )  
-    
+    )
+
     merged = find_files.out
         .mix(quality_control.out)
         .mix(trim.out.map{it -> tuple(it[1], it[2])})
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
-   //     .mix(report.out)
+        .mix(report.out)
         .flatten()
 
-   // upload(merged)
+   upload(merged)
 
 
     publish:
