@@ -85,16 +85,15 @@ workflow {
         .collect()
     )
 
-    merged = find_files.out
-        .mix(quality_control.out)
+    merged = quality_control.out.map{it -> tuple(it[2], it[3])}
         .mix(trim.out.map{it -> tuple(it[1], it[2])})
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
         .mix(report.out)
-        .collect()
-
-   upload(merged)
+        .flatten().collect()
+   
+    upload(merged)
 
 
     publish:
@@ -157,7 +156,7 @@ process report {
 
     script:
     """
-    mkdir r_data && mv *.rds r_data
+    mkdir r_data && mv *.rds r_data && mkdir figures && mkdir tables
     quarto render ${template} --execute --to html --output report.html
     """
 }
@@ -172,12 +171,14 @@ process upload {
 
     script:
     """
+    mkdir out && mv ${files} out && cd out
     mkdir r_data && mv *.rds r_data
     mkdir tables && mv *.csv tables
     mkdir figures && mv *.png figures
     mkdir trees && mv *.tree trees
-    rclone copy -P . \
-        "nextcloud:/wetlab/Patho 16S sequencing/${params.run.replaceAll('-', '').split('__')[0]}"
+    mkdir logs && mv *.log logs
+    rclone copy -P -L . \
+        "nextcloud:/Patho 16S sequencing/${params.run.replaceAll('-', '').split('__')[0]}"
     """
 }
 
