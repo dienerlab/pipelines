@@ -37,3 +37,5 @@ dependencies:
   - r-xfun
   - r-locfit
   - r-rcurl
+  - r-tidyverse
+  - r-readxl
