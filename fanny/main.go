@@ -54,7 +54,7 @@ func main() {
 		log.Fatalf("Error opening connection: %v", err)
 	}
 
-	fmt.Println("Fanny Bot is running. Press CTRL-C to exit.")
+	log.Println("Fanny Bot is running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
