@@ -7,7 +7,7 @@ format:
         embed-resources: true
         html-math-method: katex
         code-fold: true
-        code-summary: "Show the code"
+        code-tools: true
         code-line-numbers: true
         df-print: paged
 ---
@@ -97,20 +97,20 @@ write_csv(g, "tables/genus_abundances.csv")
 asvs
 ```
 
-```{r, fig.width=8, fig.height=24}
+```{r, fig.width=24, fig.height=8}
 library(ComplexHeatmap)
 
 hm <- Heatmap(
-  log10(mat+0.5)[sort(rownames(mat)),] |> t(),
+  log10(mat+0.5)[sort(rownames(mat)),],
   col=viridisLite::magma(256),
-  row_names_max_width = unit(12, "cm"),
+  col_names_max_width = unit(12, "cm"),
   name="log10(reads)",
-  column_dend_side="bottom",
-  column_names_side="top",
+  row_dend_side="right",
+  row_names_side="left",
   column_names_rot=45
 )
 
-png("figures/genus_heatmap.png", width=8, height=24, unit="in", res=300)
+png("figures/genus_heatmap.png", width=24, height=8, unit="in", res=300)
 print(hm)
 dev.off()
 
