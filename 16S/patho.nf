@@ -91,9 +91,9 @@ workflow {
         .mix(tables.out)
         .mix(tree.out)
         .mix(report.out)
-        .flatten().collect()
-   
-    upload(merged)
+        .flatten()
+
+    upload(merged.collect())
 
 
     publish:

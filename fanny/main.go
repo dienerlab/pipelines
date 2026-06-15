@@ -47,7 +47,7 @@ func main() {
 		log.Fatalf("Error creating session: %v", err)
 	}
 
-	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
+	dg.Identify.Intents = discordgo.IntentGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 	dg.AddHandler(messageCreate)
 
 	if err := dg.Open(); err != nil {
@@ -77,13 +77,13 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	if len(args) == 1 || args[1] == "help" {
-		sendHelp(s, m.ChannelID)
-		return
-	}
-
 	// Route to subcommands
 	switch args[1] {
+	case "help":
+		sendHelp(s, m.ChannelID)
+	case "talk":
+		s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("👋 Hello %s, I am here and ready to help. 🧫", m.Author))
 	case "patho":
 		handlePatho(s, m, args[2:])
 	default:
@@ -111,6 +111,10 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	}
 
 	folderDate := strings.ReplaceAll(strings.Split(runArg, "__")[0], "-", "")
+	log.Printf(
+		"Received a request for the Patho Pipeline for run %s with amplicon size %d. Will save results in %s."
+		runArg, truncLen, folderDate
+	)
 
 	// Execute Nextflow Patho pipeline
 	cmd := exec.Command(
@@ -123,7 +127,8 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	s.ChannelMessageSend(
 		m.ChannelID,
 		fmt.Sprintf(
-			"⏳ **The pipeline is now running** for run %s. You can track the progress on https://cloud.seqera.io/orgs/dienerlab/workspaces/collab/watch.",
+			"⏳ **The pipeline is now running** for run '%s'. \n"+
+				"You can track the progress on https://cloud.seqera.io/orgs/dienerlab/workspaces/collab/watch.",
 			runArg,
 		),
 	)
@@ -132,8 +137,8 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		s.MessageReactionAdd(m.ChannelID, m.ID, "❌")
 		s.ChannelMessageSend(
 			m.ChannelID,
-			`⚠️ **Pipeline execution failed.**\nPlease check the logs and let
-Christian know in case it is not something obvious.`,
+			"⚠️ **Pipeline execution failed.**\n"+
+				"Please check the logs and let Christian know in case it is not something obvious.",
 		)
 		return
 	}
@@ -149,6 +154,8 @@ Christian know in case it is not something obvious.`,
 		if f, err := os.Open(p.path); err == nil {
 			files = append(files, &discordgo.File{Name: p.name, Reader: f})
 			defer f.Close()
+		} else {
+			log.Printf("Could not read the file %s.", p)
 		}
 	}
 
@@ -156,7 +163,9 @@ Christian know in case it is not something obvious.`,
 		Embeds: []*discordgo.MessageEmbed{{
 			Title: "🚀 Pathogen Pipeline Finished",
 			Description: fmt.Sprintf(
-				`✅ **Patho Pipeline finished.**\nI finished the pipeline and everything looks good.\n
+				`✅ **Patho Pipeline finished.**
+I finished the pipeline and everything looks good.
+
 You should be able to find the rest of the results in the folder '%s' at https://box.medunigraz.at/f/186637353 .
 Attached are the logs, QC results and genus abundances.`,
 				runArg,
@@ -177,6 +186,8 @@ func getLogs(folderDate string) string {
 	for _, f := range files {
 		if content, err := os.ReadFile(f); err == nil {
 			sb.WriteString(fmt.Sprintf("--- %s ---\n%s\n", filepath.Base(f), string(content)))
+		} else {
+			log.Printf("Could not read the log %s.", f)
 		}
 	}
 	res := sb.String()
@@ -189,15 +200,23 @@ func getLogs(folderDate string) string {
 func sendHelp(s *discordgo.Session, cid string) {
 	s.ChannelMessageSendEmbed(cid, &discordgo.MessageEmbed{
 		Title: "🧬 Fanny Bot Help",
-		Description: `I am Discord Bot that can run the our pipelines on an HPC.
-I am named after Fanny Hesse and can be called with '!fanny' followed by the subcommands
-listed below.`,
+		Description: "I am Discord Bot that can run the our pipelines on an HPC.\n" +
+			"I am named after Fanny Hesse and can be called with '!fanny' " +
+			"followed by the subcommands listed below.",
 		Fields: []*discordgo.MessageEmbedField{
 			{
+				Name:  "!fanny help",
+				Value: "Show the available commands.",
+			},
+			{
+				Name:  "!fanny talk",
+				Value: "Check whether Fanny is there (the bot is connected).",
+			},
+			{
 				Name: "!fanny patho <run_id> [include-mito]",
-				Value: `Run the pathology 16S pipeline.
-When the optional 'include-mito' part is provided it will choose a
-shorter amplicon that will include mitochondria.`,
+				Value: "Run the pathology 16S pipeline.\n" +
+					"When the optional 'include-mito' part is provided it will choose a " +
+					"shorter amplicon that will include mitochondria.",
 			},
 		},
 		Color: 0x7289DA,
