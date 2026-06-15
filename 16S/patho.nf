@@ -76,14 +76,14 @@ workflow {
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
-    report(
+
         channel.fromPath("${projectDir}/report.qmd")
         .mix(denoise.out.map{it -> it[1]})
         .mix(tree.out.map{it -> it[1]})
         .mix(quality_control.out.map{it -> it[2]})
         .mix(download_raw_files.out)
-        .flatten()
-    )
+        .collect().flatten().view()
+
 
     merged = find_files.out
         .mix(quality_control.out)
