@@ -171,13 +171,10 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 I finished the pipeline and everything looks good.
 
 You should be able to find the rest of the results in the folder '%s' at https://box.medunigraz.at/f/186637353 .
-Attached are the logs, QC results and genus abundances.`,
+Attached are the QC results and genus abundances.`,
 				runArg,
 			),
 			Color: 0x00FF00,
-			Fields: []*discordgo.MessageEmbedField{
-				{Name: "Logs", Value: "```text\n" + getLogs(folderDate) + "\n```"},
-			},
 		}},
 		Files: files,
 	})
