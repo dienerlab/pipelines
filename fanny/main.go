@@ -41,6 +41,9 @@ var (
 // pipelineLock ensures exclusive execution of the pipeline to prevent resource conflicts.
 var pipelineLock sync.Mutex
 
+// cleaner for input path
+var replacer = strings.NewReplacer("`", "", "\"", "", "'", "")
+
 func main() {
 	dg, err := discordgo.New("Bot " + BotToken)
 	if err != nil {
@@ -104,7 +107,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		return
 	}
 
-	runArg := args[0]
+	runArg := replacer.Replace(args[0])
 	truncLen := 806 - 515
 	if len(args) > 1 && args[1] == "include-mito" {
 		truncLen = 207
@@ -122,6 +125,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		filepath.Join(Pipelines, "16S", "patho.nf"),
 		"--run", runArg, "--read_length", strconv.Itoa(truncLen),
 		"-with-conda", filepath.Join(Envs, "16S"),
+		"-profile", "standard,collab",
 	)
 
 	s.ChannelMessageSend(
