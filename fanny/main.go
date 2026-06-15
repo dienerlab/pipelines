@@ -108,9 +108,9 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	}
 
 	runArg := replacer.Replace(args[0])
-	truncLen := 806 - 515
+	truncLen := 280
 	if len(args) > 1 && args[1] == "include-mito" {
-		truncLen = 207
+		truncLen = 205
 	}
 
 	folderDate := strings.ReplaceAll(strings.Split(runArg, "__")[0], "-", "")
