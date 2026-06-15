@@ -2,10 +2,13 @@
 title: "Standard report for the 16S amplicon sequencing"
 author: "Diener Lab 16S pipeline"
 date: now
-format: 
+format:
     html:
         embed-resources: true
         html-math-method: katex
+        code-fold: true
+        code-summary: "Show the code"
+        code-line-numbers: true
 ---
 
 ```{r}
@@ -115,7 +118,11 @@ hm
 
 # Ordination
 
-Quick check hwo samples differ
+Quick check how samples differ.
+
+```{r}
+ord <- ordinate(ps, method="PCoA", distance="bray")
+```
 
 ```{r, fig.width=6, fig.height=4}
 plot_ordination(ps, ord, label="sample_id", color="type")
