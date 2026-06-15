@@ -9,6 +9,7 @@ format:
         code-fold: true
         code-summary: "Show the code"
         code-line-numbers: true
+        df-print: paged
 ---
 
 ```{r}
