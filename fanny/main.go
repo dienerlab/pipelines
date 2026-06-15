@@ -165,10 +165,9 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 
 	_, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
-			Title: "🚀 Pathogen Pipeline Finished",
+			Title: "🚀 Patho Pipeline Finished",
 			Description: fmt.Sprintf(
-				`✅ **Patho Pipeline finished.**
-I finished the pipeline and everything looks good.
+				`✅ I finished the pipeline and everything **looks good**.
 
 You should be able to find the rest of the results in the folder '%s' at https://box.medunigraz.at/f/186637353 .
 Attached are the QC results and genus abundances.`,
