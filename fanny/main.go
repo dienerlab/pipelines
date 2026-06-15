@@ -112,7 +112,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 
 	folderDate := strings.ReplaceAll(strings.Split(runArg, "__")[0], "-", "")
 	log.Printf(
-		"Received a request for the Patho Pipeline for run %s with amplicon size %d. Will save results in %s."
+		"Received a request for the Patho Pipeline for run %s with amplicon size %d. Will save results in %s.",
 		runArg, truncLen, folderDate
 	)
 
