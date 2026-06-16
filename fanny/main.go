@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	CpuTotal   = 1416.0
+	CpuTotal   = 1416
 	MemTotalGB = 9220.0
 )
 
@@ -50,8 +50,8 @@ var pipelineLock sync.Mutex
 var replacer = strings.NewReplacer("`", "", "\"", "", "'", "")
 
 // Helper to determine emoji based on usage ratio
-func getEmoji(used, total float64) string {
-	ratio := used / total
+func getEmoji[T int | float64](used, total T) string {
+	ratio := float64(used) / float64(total)
 	switch {
 	case ratio < 0.5:
 		return "😇"
@@ -133,7 +133,7 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	cpuUsed := 0
-	memUsedMB := 0
+	memUsedMB := 0.0
 
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
@@ -149,15 +149,15 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// Parse Memory (Handle suffixes if present)
 		memStr := strings.TrimRight(fields[1], "M")
 		m, _ := strconv.Atoi(memStr)
-		memUsedMB += m
+		memUsedMB += float64(m)
 	}
 
-	memUsedGB := memUsedMB / 1024
+	memUsedGB := memUsedMB / 1024.0
 
 	msg := fmt.Sprintf("Here is the status of the cluster (CPU partition).\n"+
 		"CPUs: %d/%d used %s    memory %.1f/%.1f GB used %s",
-		cpuUsed, CpuTotal, getEmoji(float64(cpuUsed), CpuTotal),
-		memUsedGB, MemTotalGB, getEmoji(float64(memUsedGB), MemTotalGB))
+		cpuUsed, CpuTotal, getEmoji(cpuUsed, CpuTotal),
+		memUsedGB, MemTotalGB, getEmoji(memUsedGB, MemTotalGB))
 
 	s.ChannelMessageSend(m.ChannelID, msg)
 }
