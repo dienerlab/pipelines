@@ -123,7 +123,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 // handleClusterStatus queries SLURM natively and safely.
 func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Execute squeue without a shell. Includes both running and pending jobs.
+	log.Printf("Cluster status requested by %s.", m.Author)
+
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+
 	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "%C %m")
 	out, err := cmd.Output()
 	if err != nil {
@@ -198,8 +201,8 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 
 	folderDate := strings.ReplaceAll(strings.Split(runArg, "__")[0], "-", "")
 	log.Printf(
-		"Received a request for the Patho Pipeline for run %s with amplicon size %d. Will save results in %s.",
-		runArg, truncLen, folderDate,
+		"Received a request for the Patho Pipeline from %s. Run %s with amplicon size %d. Will save results in %s.",
+		m.Author, runArg, truncLen, folderDate,
 	)
 
 	// Execute Nextflow Patho pipeline
@@ -267,10 +270,12 @@ Attached are the QC results and genus abundances.`,
 }
 
 func sendHelp(s *discordgo.Session, cid string) {
+	log.Printf("Help was requested by %s.", m.Author)
+
 	s.ChannelMessageSendEmbed(cid, &discordgo.MessageEmbed{
 		Title: "🧬 Fanny Bot Help",
 		Description: "I am Discord Bot that can run the our pipelines on an HPC.\n" +
-			"I am named after Fanny Hesse and can be called with '!fanny' " +
+			"I am named after [Fanny Hesse](https://en.wikipedia.org/wiki/Fanny_Hesse) and can be called with '!fanny' " +
 			"followed by the subcommands listed below.",
 		Fields: []*discordgo.MessageEmbedField{
 			{
