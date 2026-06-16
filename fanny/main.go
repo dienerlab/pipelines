@@ -31,6 +31,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+const (
+	CpuTotal := 1416.0
+	MemTotalGB := 9220.0
+)
+
 var (
 	BotToken      = os.Getenv("DISCORD_BOT_TOKEN")
 	TargetChannel = os.Getenv("DISCORD_CHANNEL")
@@ -43,6 +48,21 @@ var pipelineLock sync.Mutex
 
 // cleaner for input path
 var replacer = strings.NewReplacer("`", "", "\"", "", "'", "")
+
+// Helper to determine emoji based on usage ratio
+func getEmoji(used, total float64) string {
+	ratio := used / total
+	switch {
+	case ratio < 0.5:
+		return "😇"
+	case ratio < 0.8:
+		return "🫡"
+	case ratio <= 1.2:
+		return "😰"
+	default:
+		return "😡"
+	}
+}
 
 func main() {
 	dg, err := discordgo.New("Bot " + BotToken)
@@ -87,11 +107,59 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case "talk":
 		s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("👋 Hello %s, I am here and ready to help. 🧫", m.Author))
+	case "cluster":
+		if len(args) > 1 && args[2] == "status" {
+			handleClusterStatus(s, m)
+		} else {
+			s.ChannelMessageSend(m.ChannelID, "❌ Unknown subcommand. Use `!fanny help`.")
+		}
 	case "patho":
 		handlePatho(s, m, args[2:])
 	default:
 		s.ChannelMessageSend(m.ChannelID, "❌ Unknown subcommand. Use `!fanny help`.")
 	}
+}
+
+// handleClusterStatus queries SLURM natively and safely.
+func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Execute squeue without a shell. Includes both running and pending jobs.
+	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "%C %m")
+	out, err := cmd.Output()
+	if err != nil {
+		log.Printf("Failed to query squeue: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "⚠️ Could not query cluster status.")
+		return
+	}
+
+	cpuUsed := 0
+	memUsedMB := 0
+
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		// Parse CPUs
+		c, _ := strconv.Atoi(fields[0])
+		cpuUsed += c
+
+		// Parse Memory (Handle suffixes if present)
+		memStr := strings.TrimRight(fields[1], "M")
+		m, _ := strconv.Atoi(memStr)
+		memUsedMB += m
+	}
+
+	memUsedGB := memUsedMB / 1024
+
+	msg := fmt.Sprintf("Here is the status of the cluster (CPU partition).\n"+
+		"CPUs: %d/%d used %s    memory %.1f/%.1f GB used %s",
+		cpuUsed, cpuTotal, getEmoji(float64(cpuUsed), CpuTotal),
+		memUsedGB, memTotalGB, getEmoji(float64(memUsedGB), MemTotalGB))
+
+	s.ChannelMessageSend(m.ChannelID, msg)
 }
 
 // handlePatho manages the pathogen pipeline execution and result reporting.
