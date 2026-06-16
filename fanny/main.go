@@ -103,7 +103,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Route to subcommands
 	switch args[1] {
 	case "help":
-		sendHelp(s, m.ChannelID)
+		sendHelp(s, m)
 	case "talk":
 		s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("👋 Hello %s, I am here and ready to help. 🧫", m.Author))
@@ -269,10 +269,10 @@ Attached are the QC results and genus abundances.`,
 	}
 }
 
-func sendHelp(s *discordgo.Session, cid string) {
+func sendHelp(s *discordgo.Session, m *discordgo.MessageCreate) {
 	log.Printf("Help was requested by %s.", m.Author)
 
-	s.ChannelMessageSendEmbed(cid, &discordgo.MessageEmbed{
+	s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
 		Title: "🧬 Fanny Bot Help",
 		Description: "I am Discord Bot that can run the our pipelines on an HPC.\n" +
 			"I am named after [Fanny Hesse](https://en.wikipedia.org/wiki/Fanny_Hesse) and can be called with '!fanny' " +
