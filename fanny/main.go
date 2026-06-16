@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	CpuTotal := 1416.0
-	MemTotalGB := 9220.0
+	CpuTotal   = 1416.0
+	MemTotalGB = 9220.0
 )
 
 var (
@@ -156,8 +156,8 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	msg := fmt.Sprintf("Here is the status of the cluster (CPU partition).\n"+
 		"CPUs: %d/%d used %s    memory %.1f/%.1f GB used %s",
-		cpuUsed, cpuTotal, getEmoji(float64(cpuUsed), CpuTotal),
-		memUsedGB, memTotalGB, getEmoji(float64(memUsedGB), MemTotalGB))
+		cpuUsed, CpuTotal, getEmoji(float64(cpuUsed), CpuTotal),
+		memUsedGB, MemTotalGB, getEmoji(float64(memUsedGB), MemTotalGB))
 
 	s.ChannelMessageSend(m.ChannelID, msg)
 }
