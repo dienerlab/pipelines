@@ -154,12 +154,25 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	memUsedGB := memUsedMB / 1024.0
 
-	msg := fmt.Sprintf("Here is the status of the cluster (CPU partition).\n"+
-		"CPUs: %d/%d used %s    memory %.1f/%.1f GB used %s",
-		cpuUsed, CpuTotal, getEmoji(cpuUsed, CpuTotal),
-		memUsedGB, MemTotalGB, getEmoji(memUsedGB, MemTotalGB))
+	_, err = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+		Title:       "🖥️ MedBioNode status",
+		Description: "Here is the status of the cluster (CPU partition).",
+		Color:       0x7289DA,
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:  "CPUs",
+				Value: fmt.Sprintf("%d/%d cores used %s", cpuUsed, CpuTotal, getEmoji(cpuUsed, CpuTotal)),
+			},
+			{
+				Name:  "Memory",
+				Value: fmt.Sprintf("%.1f/%.1f GB used %s", memUsedGB, MemTotalGB, getEmoji(memUsedGB, MemTotalGB)),
+			},
+		},
+	})
 
-	s.ChannelMessageSend(m.ChannelID, msg)
+	if err != nil {
+		log.Fatal("Failed to send the cluster status message.")
+	}
 }
 
 // handlePatho manages the pathogen pipeline execution and result reporting.
