@@ -160,12 +160,14 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 		Color:       0x7289DA,
 		Fields: []*discordgo.MessageEmbedField{
 			{
-				Name:  "CPUs",
-				Value: fmt.Sprintf("%d/%d cores used %s", cpuUsed, CpuTotal, getEmoji(cpuUsed, CpuTotal)),
+				Name:   "CPUs",
+				Value:  fmt.Sprintf("%d/%d cores used %s", cpuUsed, CpuTotal, getEmoji(cpuUsed, CpuTotal)),
+				Inline: true,
 			},
 			{
-				Name:  "Memory",
-				Value: fmt.Sprintf("%.1f/%.1f GB used %s", memUsedGB, MemTotalGB, getEmoji(memUsedGB, MemTotalGB)),
+				Name:   "Memory",
+				Value:  fmt.Sprintf("%.1f/%.1f GB used %s", memUsedGB, MemTotalGB, getEmoji(memUsedGB, MemTotalGB)),
+				Inline: true,
 			},
 		},
 	})
