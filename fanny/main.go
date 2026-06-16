@@ -160,13 +160,13 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 		Color:       0x7289DA,
 		Fields: []*discordgo.MessageEmbedField{
 			{
-				Name:   "CPUs",
-				Value:  fmt.Sprintf("%d/%d cores used %s", cpuUsed, CpuTotal, getEmoji(cpuUsed, CpuTotal)),
+				Name:   fmt.Sprintf("CPUs %s", getEmoji(cpuUsed, CpuTotal)),
+				Value:  fmt.Sprintf("%d/%d cores reserved.", cpuUsed, CpuTotal),
 				Inline: true,
 			},
 			{
-				Name:   "Memory",
-				Value:  fmt.Sprintf("%.1f/%.1f GB used %s", memUsedGB, MemTotalGB, getEmoji(memUsedGB, MemTotalGB)),
+				Name:   fmt.Sprintf("Memory %s", getEmoji(memUsedGB, MemTotalGB)),
+				Value:  fmt.Sprintf("%.1f/%.1f GB reserved.", memUsedGB, MemTotalGB),
 				Inline: true,
 			},
 		},
@@ -280,6 +280,10 @@ func sendHelp(s *discordgo.Session, cid string) {
 			{
 				Name:  "!fanny talk",
 				Value: "Check whether Fanny is there (the bot is connected).",
+			},
+			{
+				Name:  "!fanny cluster status",
+				Value: "Get the current cluster status like reserved CPUs and memory.",
 			},
 			{
 				Name: "!fanny patho <run_id> [include-mito]",
