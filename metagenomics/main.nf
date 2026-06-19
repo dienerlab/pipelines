@@ -128,22 +128,8 @@ workflow {
     preprocess(raw)
 
     // quantify taxa abundances
-
-    // buffer the samples into batches
-    batched = preprocess.out
-        .collate(params.batchsize)
-        .map{it -> it.collect{a -> a[1]}.flatten().sort()}
-    // run Kraken2
-    kraken(batched)
-    reports = kraken.out
-        .flatMap{k -> k[1]}
-        .map{k -> tuple k.baseName.split(".tsv")[0], k}
-
-    count_taxa(reports.combine(levels))
-    count_taxa.out.map{s -> tuple(s[1], s[3])}
-        .groupTuple()
-        .set{merge_groups}
-    merge_taxonomy(merge_groups)
+    singleM(preprocess.out)
+    singleM.out.map{it -> tuple(it[0], it[1])}.groupBy() | summarizeProfiles
 
     // quality overview
     multiqc(merge_taxonomy.out.collect())
@@ -287,6 +273,50 @@ process count_taxa {
         -t ${params.threshold} -w ${lev}/${id}_bracken.tsv && \
         kreport2mpa.py -r ${lev}/${id}_bracken.tsv -o ${lev}/${id}_bracken_mpa.tsv \
         --no-intermediate-ranks
+    """
+}
+
+process singleM {
+    cpus 3
+    memory 8.GB
+    time 2.h
+
+    input:
+    tuple val(id), path(fastqs), path(json), path(html)
+
+    output:
+    tuple val(id), path("${id}_profile.tsv"), path("${id}_otus.tsv")
+
+    script:
+    if (params.single_end)
+        """
+        singlem pipe -1 ${fastqs} --threads ${task.cpus} \
+            -p ${id}_profile.tsv \
+            --otu-table ${id}_otus.tsv
+        """
+    else
+        """
+        singlem pipe -1 ${fastqs[0]} -2 ${fastqs[1]} --threads ${task.cpus} \
+            -p ${id}_profile.tsv \
+            --otu-table ${id}_otus.tsv
+        """
+}
+
+process summarizeProfiles {
+    cpus 1
+    memory 16.GB
+    time 2.h
+
+    input:
+    tuple val(id), path(profiles)
+
+    output:
+    path("taxon_abundances.tsv")
+
+    script:
+    """
+    singlem summarise --input-taxonomic-profile ${profiles} \
+        --output-taxonomic-profile-with-extras taxon_abundances.tsv
     """
 }
 
