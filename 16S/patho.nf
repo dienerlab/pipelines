@@ -98,6 +98,7 @@ workflow {
 
     publish:
     results = merged
+    reports = report.out.flatten()
 }
 
 output {
@@ -122,6 +123,12 @@ output {
                 return "${params.data_dir}/"
             }
         }
+        mode "copy"
+        overwrite true
+    }
+
+    reports {
+        path { params.data_dir }
         mode "copy"
         overwrite true
     }
