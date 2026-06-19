@@ -72,7 +72,8 @@ workflow {
 
     log.info "Will save results to '${params.data_dir}'."
 
-    manifest = download_raw_files | find_files
+    runID = channel.of(params.run)
+    manifest = download_raw_files(runID) | find_files
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
@@ -138,6 +139,9 @@ process download_raw_files {
     cpus 1
     memory "4 GB"
     time "1h"
+
+    input:
+    val runID
 
     output:
     path("raw")
