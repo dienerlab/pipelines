@@ -127,7 +127,7 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
-	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "%C %m")
+	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "%C %m", "--units", "M")
 	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("Failed to query squeue: %v", err)
@@ -151,7 +151,10 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		// Parse Memory (Handle suffixes if present)
 		memStr := strings.TrimRight(fields[1], "M")
-		m, _ := strconv.Atoi(memStr)
+		m, err := strconv.Atoi(memStr)
+		if err != nil {
+			log.Printf("Could not parse squeue memory string: %s", memStr)
+		}
 		memUsedMB += float64(m)
 	}
 
@@ -205,6 +208,18 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		m.Author, runArg, truncLen, folderDate,
 	)
 
+	if _, err := os.Stat("/path/to/whatever"); err != nil {
+		s.ChannelMessageSend(
+			fmt.Sprintf(
+				"⚠️ **The run `%s` has already been analyzed.**\n" +
+				"Rerunning the pipeline will only work if the pipeline itself was updated *not* " +
+				"if the sequencing manifest was changed. In case there are errors please ask " +
+				"Christian to remove the cache and results.",
+				folderDate
+			)
+		)
+	}
+
 	// Execute Nextflow Patho pipeline
 	cmd := exec.Command(
 		"nextflow", "run", "-resume",
@@ -257,7 +272,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 
 You should be able to find the rest of the results in the folder '%s' at https://box.medunigraz.at/f/186637353 .
 Attached are the QC results and genus abundances.`,
-				runArg,
+				folderDate,
 			),
 			Color: 0x00FF00,
 		}},
