@@ -1,0 +1,4 @@
+sample-id	absolute-filepath
+sample-1	$PWD/raw/sample1.fastq.gz
+sample-2	$PWD/raw/sample2.fastq.gz
+sample-3	$PWD/raw/sample3.fastq.gz
