@@ -196,7 +196,7 @@ func handleClusterDisk(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
-	cmd := exec.Command("du", "-d", "1")
+	cmd := exec.Command("du", "-d", "1", "/home/isilon/dienerlab")
 	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("Failed to run du: %v", err)
