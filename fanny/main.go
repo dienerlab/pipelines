@@ -140,7 +140,7 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
-	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "'%C %m'", "--units", "M")
+	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "'%C %m'")
 	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("Failed to query squeue: %v", err)
