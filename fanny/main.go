@@ -153,7 +153,7 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
-		fields := strings.Fields(line)
+		fields := strings.Fields(strings.Trim(line, "\""))
 		if len(fields) < 2 {
 			continue
 		}
