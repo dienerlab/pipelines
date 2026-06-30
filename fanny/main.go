@@ -36,6 +36,7 @@ const (
 	CpuTotal   = 1416
 	MemTotalGB = 9220.0
 	DiskTotal  = 40.0
+	DiskLoc    = "/home/isilon/dienerlab"
 )
 
 var (
@@ -194,15 +195,17 @@ func handleClusterDisk(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Execute squeue without a shell. Includes both running and pending jobs.
 	log.Printf("Disk usage requested by %s.", m.Author)
 
-	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+	s.MessageReactionAdd(m.ChannelID, m.ID, "🚧")
 
-	cmd := exec.Command("du", "-d", "1", "/home/isilon/dienerlab")
+	cmd := exec.Command("du", "-d", "1", DiskLoc)
 	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("Failed to run du: %v", err)
 		s.ChannelMessageSend(m.ChannelID, "⚠️ Could not disk usage.")
 		return
 	}
+
+	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
 	var diskUsedBytes int = 0
 	largest := 0
@@ -215,15 +218,15 @@ func handleClusterDisk(s *discordgo.Session, m *discordgo.MessageCreate) {
 			continue
 		}
 
-		if fields[1] == "." {
+		if fields[1] == DiskLoc {
 			diskUsedBytes, _ = strconv.Atoi(fields[0])
 			continue
 		}
 
-		used, _ := strconv.Atoi(fields[1])
+		used, _ := strconv.Atoi(fields[0])
 		if used > largest {
 			largest = used
-			largestName = fields[0]
+			largestName = strings.Split(fields[1], DiskLoc)[1]
 		}
 	}
 
