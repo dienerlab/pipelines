@@ -44,6 +44,12 @@ var (
 	TargetChannel = os.Getenv("DISCORD_CHANNEL")
 	Envs          = os.Getenv("DLE")
 	Pipelines     = os.Getenv("DLP")
+	SizeSuffix    = map[string]float64{
+		"K": (1.0 / 1024 / 1024),
+		"M": (1.0 / 1024),
+		"G": 1.0,
+		"T": 1024.0,
+	}
 )
 
 // pipelineLock ensures exclusive execution of the pipeline to prevent resource conflicts.
@@ -134,7 +140,7 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
-	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "%C %m", "--units", "M")
+	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "'%C %m'", "--units", "M")
 	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("Failed to query squeue: %v", err)
@@ -143,7 +149,7 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	cpuUsed := 0
-	memUsedMB := 0.0
+	memUsedGB := 0.0
 
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
@@ -157,15 +163,13 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 		cpuUsed += c
 
 		// Parse Memory (Handle suffixes if present)
-		memStr := strings.TrimRight(fields[1], "M")
+		memStr := strings.TrimRight(fields[1], "MGT")
 		m, err := strconv.Atoi(memStr)
 		if err != nil {
 			log.Printf("Could not parse squeue memory string: %s", memStr)
 		}
-		memUsedMB += float64(m)
+		memUsedGB += float64(m) * SizeSuffix[fields[1][len(fields[1])-1:]]
 	}
-
-	memUsedGB := memUsedMB / 1024.0
 
 	_, err = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
 		Title:       "🖥️ MedBioNode status",
