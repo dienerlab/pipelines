@@ -192,7 +192,7 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 // handleClusterDisk gets the disk use in the dienerlab folder
 func handleClusterDisk(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Execute squeue without a shell. Includes both running and pending jobs.
-	log.Printf("Cluster status requested by %s.", m.Author)
+	log.Printf("Disk usage requested by %s.", m.Author)
 
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
