@@ -4,10 +4,9 @@ nextflow.enable.dsl = 2
 
 params.data_dir = "${launchDir}/data"
 params.raw_data = "raw"
-params.refs = "${launchDir}/refs"
+params.refs = env("DLP") ? "/home/isilon/dienerlab/refs" : "${launchDir}/refs"
 params.eggnog_refs = "${params.refs}/eggnog"
-params.kraken2_db = "${params.refs}/kraken2"
-params.kraken2_mem = null
+params.metapackage = "${params.refs}/GlobDB_r232.metapackage_v4.smpkg"
 
 params.single_end = false
 params.trim_front = 5
@@ -19,9 +18,6 @@ params.contig_length = 500
 params.overlap = 0.8
 params.identity = 0.99
 params.threads = 12
-params.confidence = 0.3
-params.ranks = "D,P,G,S"
-params.batchsize = 50
 params.method = "illumina"
 
 
@@ -97,6 +93,8 @@ params.help = false
 
 
 workflow {
+    main:
+
     // Show help message
     if (params.help) {
         helpMessage()
@@ -132,7 +130,11 @@ workflow {
     singleM.out.map{it -> tuple(it[0], it[1])}.groupBy() | summarizeProfiles
 
     // quality overview
-    multiqc(merge_taxonomy.out.collect())
+    multiqc(
+        preprocess.out
+        .map{sa -> sa[2]}
+        .collect()
+    )
 
     // assemble de novo
     assemble(preprocess.out)
@@ -150,14 +152,69 @@ workflow {
     )
     cluster_counts(merge_counts.out, cluster_proteins.out)
     annotate(cluster_proteins.out)
+
+    publish:
+
+    preprocessed = preprocess.out
+    taxonomic_profiles = summarizeProfiles.out
+    multiqc_report = multiqc.out
+    assemblies = assemble.out
+    txns = filter_transcripts.out
+    clusters = cluster_proteins.out
+    counts = cluster_counts.out
+    annotations = annotate.out
+}
+
+output {
+    preprocessed {
+        path "${params.data_dir}/preprocessed/"
+    }
+
+    taxonomic_profiles {
+        path params.data_dir
+        mode "copy"
+        overwrite true
+    }
+
+    multiqc_report {
+        path params.data_dir
+        mode "copy"
+        overwrite true
+    }
+
+    assemblies {
+        path "${params.data_dir}/assemblies/"
+    }
+
+    txns {
+        path params.data_dir
+        mode "copy"
+        overwrite true
+    }
+
+    clusters {
+        path params.data_dir
+        mode "copy"
+        overwrite true
+    }
+
+    counts {
+        path params.data_dir
+        mode "copy"
+        overwrite true
+    }
+
+    annotations {
+        path params.data_dir
+        mode "copy"
+        overwrite true
+    }
 }
 
 process preprocess {
     cpus 3
     memory "4GB"
     time "30m"
-
-    publishDir "${params.data_dir}/preprocessed"
 
     input:
     tuple val(id), path(reads)
@@ -210,12 +267,14 @@ process singleM {
     if (params.single_end)
         """
         singlem pipe -1 ${fastqs} --threads ${task.cpus} \
+            --metapackage ${params.metapackage} \
             -p ${id}_profile.tsv \
             --otu-table ${id}_otus.tsv
         """
     else
         """
         singlem pipe -1 ${fastqs[0]} -2 ${fastqs[1]} --threads ${task.cpus} \
+            --metapackage ${params.metapackage} \
             -p ${id}_profile.tsv \
             --otu-table ${id}_otus.tsv
         """
@@ -245,17 +304,15 @@ process multiqc {
     memory "8GB"
     time "1h"
 
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
-
     input:
-    path(taxonomy)
+    path(jsons)
 
     output:
     path("multiqc_report.html")
 
     script:
     """
-    multiqc ${params.data_dir}/preprocessed ${params.data_dir}/kraken2
+    multiqc ./
     """
 }
 
@@ -264,8 +321,6 @@ process assemble {
     cpus 4
     memory "16GB"
     time "12h"
-
-    publishDir "${params.data_dir}/assembled"
 
     input:
     tuple val(id), path(reads), path(json), path(report)
@@ -297,7 +352,6 @@ process find_genes {
     cpus 1
     memory "2GB"
     time "1h"
-    publishDir "${params.data_dir}/genes"
 
     input:
     tuple val(id), path(assembly)
@@ -321,8 +375,6 @@ process cluster_proteins {
     memory "40GB"
     time "2h"
 
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
-
     input:
     path(proteins)
 
@@ -344,7 +396,6 @@ process filter_transcripts {
     cpus 1
     memory "8GB"
     time "8h"
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
     path(transcripts)
@@ -416,7 +467,6 @@ process merge_counts {
     cpus 1
     memory "8GB"
     time "4h"
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
     path(salmon_quants)
@@ -496,7 +546,6 @@ process annotate {
     cpus params.threads
     memory "64GB"
     time "2d"
-    publishDir "${params.data_dir}", mode: "copy", overwrite: true
 
     input:
     tuple path(proteins), path(clusters)
