@@ -7,6 +7,7 @@ params.raw_data = "raw"
 params.refs = env("DLP") ? "/home/isilon/dienerlab/refs" : "${launchDir}/refs"
 params.eggnog_refs = "${params.refs}/eggnog"
 params.metapackage = "${params.refs}/GlobDB_r232.metapackage_v4.smpkg"
+params.viralpackage = "${params.refs}/lyrebird_v0.3.1_phrog_v4.1_metapackage_20250720.smpkg.zb"
 
 params.single_end = false
 params.trim_front = 5
@@ -19,22 +20,6 @@ params.overlap = 0.8
 params.identity = 0.99
 params.threads = 12
 params.method = "illumina"
-
-
-// Helper to calculate the required RAM for the Kraken2 database
-def estimate_db_size(hash, extra) {
-    def db_size = null
-
-    // Calculate db memory requirement
-    if (params.kraken2_mem) {
-        db_size = MemoryUnit.of("${params.kraken2_mem} GB")
-    } else {
-        db_size = MemoryUnit.of(file(hash).size()) + extra
-        log.info("Based on the hash size I am reserving ${db_size.toGiga()}GB of memory for Kraken2.")
-    }
-
-    return db_size
-}
 
 
 def helpMessage() {
@@ -62,9 +47,8 @@ def helpMessage() {
     Reference DBs:
       --refs [str]                  Folder in which to find references DBs.
       --eggnogg_refs [str]          Where to find EGGNOG references. Defaults to <refs>/eggnog.
-      --kraken2_db [str]            Where to find the Kraken2 reference. Defaults to <refs>/kraken2_default.
-      --kraken2_mem [str]           The maximum amount of memory for Kraken2. If not set will choose this automatically
-                                    based on the database size. Thus, only use to limit Kraken2 to less memory.
+      --metapackage [str]           Where to find the singleM metapackage.
+      --viralpackage [str]          Where to find the lyrebird metapackage for viral detection.
     Quality filter:
       --trim_front [str]            How many bases to trim from the 5' end of each read.
       --min_length [str]            Minimum accepted length for a read.
@@ -75,15 +59,6 @@ def helpMessage() {
       --contig_length [int]         Minimum length of a contig.
       --identity [double]           Minimum average nucleotide identity.
       --overlap [double]            Minimum required overlap between contigs.
-
-    Taxonomic classification:
-      --batchsize [int]             The batch size for Kraken2 jobs. See documentation
-                                    for more info. Should be 1 on single machine setups
-                                    and much larger than one on HPC setups.
-      --kraken2_mem [int]           Maximum memory in GB to use for Kraken2. If not set
-                                    this will be determined automatically from the database.
-                                    So, only set this if you want to overwrite the automatic
-                                    detection.
     """.stripIndent()
 }
 
@@ -123,7 +98,19 @@ workflow {
 
     // quantify taxa abundances
     singleM(preprocess.out)
-    singleM.out.map{it -> it[1]}.collect() | summarizeProfiles
+    lyrebird(preprocess.out)
+    summarizeProfiles(
+        singleM.out.map{it -> it[1]}.collect(),
+        lyrebird.out.map{it -> it[1]}.collect()
+    )
+    summarizeOTUs(
+        singleM.out.map{it -> it[2]}.collect(),
+        lyrebird.out.map{it -> it[2]}.collect()
+    )
+
+    mergePF(
+        singleM.out.map{it -> it[3]}.collect()
+    )
 
     // quality overview
     multiqc(
@@ -153,6 +140,7 @@ workflow {
 
     preprocessed = preprocess.out
     taxonomic_profiles = summarizeProfiles.out
+    otus = summarizeOTUs.out
     multiqc_report = multiqc.out
     assemblies = assemble.out
     txns = filter_transcripts.out
@@ -167,6 +155,11 @@ output {
     }
 
     taxonomic_profiles {
+        mode "copy"
+        overwrite true
+    }
+
+    otus {
         mode "copy"
         overwrite true
     }
@@ -251,7 +244,7 @@ process singleM {
     tuple val(id), path(fastqs), path(json), path(html)
 
     output:
-    tuple val(id), path("${id}_profile.tsv"), path("${id}_otus.tsv")
+    tuple val(id), path("${id}_profile.tsv"), path("${id}_otus.tsv"), path("${id}_spf.tsv")
 
     script:
     if (params.single_end)
@@ -260,11 +253,45 @@ process singleM {
             --metapackage ${params.metapackage} \
             -p ${id}_profile.tsv \
             --otu-table ${id}_otus.tsv
+
+        singlem prokaryotic_fraction -1 ${fastqs} \
+            -p ${id}_profile.tsv > ${id}_spf.tsv
         """
     else
         """
         singlem pipe -1 ${fastqs[0]} -2 ${fastqs[1]} --threads ${task.cpus} \
             --metapackage ${params.metapackage} \
+            -p ${id}_profile.tsv \
+            --otu-table ${id}_otus.tsv
+
+        singlem prokaryotic_fraction -1 ${fastqs[0]} -2 ${fastqs[1]} \
+            -p ${id}_profile.tsv > ${id}_spf.tsv
+        """
+}
+
+process lyrebird {
+    cpus 3
+    memory 8.GB
+    time 2.h
+
+    input:
+    tuple val(id), path(fastqs), path(json), path(html)
+
+    output:
+    tuple val(id), path("${id}_profile.tsv"), path("${id}_otus.tsv")
+
+    script:
+    if (params.single_end)
+        """
+        lyrebird pipe -1 ${fastqs} --threads ${task.cpus} \
+            --metapackage ${params.viralpackage} \
+            -p ${id}_profile.tsv \
+            --otu-table ${id}_otus.tsv
+        """
+    else
+        """
+        lyrebird pipe -1 ${fastqs[0]} -2 ${fastqs[1]} --threads ${task.cpus} \
+            --metapackage ${params.viralpackage} \
             -p ${id}_profile.tsv \
             --otu-table ${id}_otus.tsv
         """
@@ -276,15 +303,64 @@ process summarizeProfiles {
     time 2.h
 
     input:
-    path(profiles)
+    path(microbes)
+    path(viral)
 
     output:
-    path("taxon_abundances.tsv")
+    path("*_abundances.tsv")
 
     script:
     """
-    singlem summarise --input-taxonomic-profile ${profiles} \
-        --output-taxonomic-profile-with-extras taxon_abundances.tsv
+    singlem summarise --input-taxonomic-profile ${microbes} \
+        --output-taxonomic-profile-with-extras microbial_abundances.tsv
+
+    singlem summarise --input-taxonomic-profile ${viral} \
+        --output-taxonomic-profile-with-extras viral_abundances.tsv
+    """
+}
+
+process mergePF {
+    cpus 1
+    memory 16.GB
+    time 2.h
+
+    input:
+    path(spfs))
+
+    output:
+    path("prokaryotic_fractions.csv")
+
+    script:
+    """
+    #!/usr/bin/env python
+
+    import polars as pl
+
+    df = pl.scan_csv("*_spf.tsv", separator="\\t").collect()
+    df.write_csv("prokaryotic_fractions.csv")
+    """
+}
+
+process summarizeOTUs {
+    cpus 1
+    memory 16.GB
+    time 2.h
+
+    input:
+    path(microbial)
+    path(viral)
+
+    output:
+    path("*_otu_abundances.tsv")
+
+    script:
+    """
+    singlem summarise --input-otu-tables ${microbial} --cluster \
+        --output-otu-table microbial_otu_abundances.tsv
+
+    singlem summarise --input-otu-tables ${viral} --cluster \
+        --output-otu-table viral_otu_abundances.tsv \
+        --cluster-id 0.99
     """
 }
 
@@ -316,20 +392,21 @@ process assemble {
     tuple val(id), path(reads), path(json), path(report)
 
     output:
-    tuple val(id), path("contigs/${id}.contigs.fa")
+    tuple val(id), path("spades/contigs.fasta")
 
     script:
     if (params.single_end && params.method == "illumina")
         """
-        megahit -r ${reads} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
-                --min-contig-len ${params.contig_length} --out-prefix ${id}
-        sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
+        spades.py -s ${reads} \
+            -o spades -t ${task.cpus} -m ${task.memory.toGiga()}
+        sed -i -e "s/^>/>${id}_/" spades/contigs.fasta
         """
     else if (!params.single_end && params.method == "illumina")
         """
-        megahit -1 ${reads[0]} -2 ${reads[1]} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
-                --min-contig-len ${params.contig_length} --out-prefix ${id}
-        sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
+        spades.py -1 ${reads[0]} -2 ${reads[1]} \
+            -o spades -t ${task.cpus} -m ${task.memory.toGiga()} \
+            --meta
+        sed -i -e "s/^>/>${id}_/" spades/contigs.fasta
         """
     else if (params.method == "nanopore" || params.method == "pacbio")
         """
@@ -352,7 +429,7 @@ process find_genes {
     script:
     """
     if grep -q ">" ${assembly}; then
-        prodigal -p meta -i ${assembly} -o ${id}.gff -d ${id}.ffn -a ${id}.faa
+        pyrodigal -p anon -i ${assembly} -o ${id}.gff -d ${id}.ffn -a ${id}.faa
     else
         touch ${id}.faa
         touch ${id}.ffn

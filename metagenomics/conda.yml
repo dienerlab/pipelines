@@ -8,7 +8,7 @@ dependencies:
   - nextflow>=26.04
   - fastp
   - megahit
-  - prodigal
+  - pyrodigal
   - salmon>=1.0
   - pandas
   - samtools
@@ -20,10 +20,9 @@ dependencies:
   - eggnog-mapper
   - pysam
   - scipy
-  - matplotlib
   - metaMDBG
   - fastplong
-  - singlem
+  - singlem>=0.21.3
   - spades
   - pip:
     - git+https://github.com/tyjo/coptr
