@@ -325,7 +325,7 @@ process mergePF {
     time 2.h
 
     input:
-    path(spfs))
+    path(spfs)
 
     output:
     path("prokaryotic_fractions.csv")
