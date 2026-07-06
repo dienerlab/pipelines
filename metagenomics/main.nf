@@ -101,10 +101,6 @@ workflow {
         exit 0
     }
 
-    channel
-    .of(params.ranks.split(","))
-    .set{levels}
-
     // find files
     if (params.single_end) {
         channel
@@ -127,7 +123,7 @@ workflow {
 
     // quantify taxa abundances
     singleM(preprocess.out)
-    singleM.out.map{it -> tuple(it[0], it[1])}.groupBy() | summarizeProfiles
+    singleM.out.map{it -> it[1]}.collect() | summarizeProfiles
 
     // quality overview
     multiqc(
@@ -167,45 +163,39 @@ workflow {
 
 output {
     preprocessed {
-        path "${params.data_dir}/preprocessed/"
+        path "preprocessed"
     }
 
     taxonomic_profiles {
-        path params.data_dir
         mode "copy"
         overwrite true
     }
 
     multiqc_report {
-        path params.data_dir
         mode "copy"
         overwrite true
     }
 
     assemblies {
-        path "${params.data_dir}/assemblies/"
+        path "assemblies"
     }
 
     txns {
-        path params.data_dir
         mode "copy"
         overwrite true
     }
 
     clusters {
-        path params.data_dir
         mode "copy"
         overwrite true
     }
 
     counts {
-        path params.data_dir
         mode "copy"
         overwrite true
     }
 
     annotations {
-        path params.data_dir
         mode "copy"
         overwrite true
     }
@@ -286,7 +276,7 @@ process summarizeProfiles {
     time 2.h
 
     input:
-    tuple val(id), path(profiles)
+    path(profiles)
 
     output:
     path("taxon_abundances.tsv")
