@@ -255,6 +255,7 @@ process singleM {
             --otu-table ${id}_otus.tsv
 
         singlem prokaryotic_fraction -1 ${fastqs} \
+            --metapackage ${params.metapackage} \
             -p ${id}_profile.tsv > ${id}_spf.tsv
         """
     else
@@ -265,6 +266,7 @@ process singleM {
             --otu-table ${id}_otus.tsv
 
         singlem prokaryotic_fraction -1 ${fastqs[0]} -2 ${fastqs[1]} \
+            --metapackage ${params.metapackage} \
             -p ${id}_profile.tsv > ${id}_spf.tsv
         """
 }
@@ -385,8 +387,8 @@ process multiqc {
 
 process assemble {
     cpus 4
-    memory "16GB"
-    time "12h"
+    memory 24.GB
+    time 12.h
 
     input:
     tuple val(id), path(reads), path(json), path(report)
@@ -397,13 +399,13 @@ process assemble {
     script:
     if (params.single_end && params.method == "illumina")
         """
-        spades.py -s ${reads} \
+        spades.py -s ${reads} --phred-offset 33 \
             -o spades -t ${task.cpus} -m ${task.memory.toGiga()}
         sed -i -e "s/^>/>${id}_/" spades/contigs.fasta
         """
     else if (!params.single_end && params.method == "illumina")
         """
-        spades.py -1 ${reads[0]} -2 ${reads[1]} \
+        spades.py -1 ${reads[0]} -2 ${reads[1]} --phred-offset 33 \
             -o spades -t ${task.cpus} -m ${task.memory.toGiga()} \
             --meta
         sed -i -e "s/^>/>${id}_/" spades/contigs.fasta
@@ -429,7 +431,7 @@ process find_genes {
     script:
     """
     if grep -q ">" ${assembly}; then
-        pyrodigal -p anon -i ${assembly} -o ${id}.gff -d ${id}.ffn -a ${id}.faa
+        pyrodigal -p meta -i ${assembly} -o ${id}.gff -d ${id}.ffn -a ${id}.faa
     else
         touch ${id}.faa
         touch ${id}.ffn
