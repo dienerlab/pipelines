@@ -255,12 +255,7 @@ process singleM {
             --otu-table ${id}_microbial_otus.tsv
 
         singlem prokaryotic_fraction -1 ${fastqs} \
-<<<<<<< HEAD
-            --metapackage ${params.metapackage} \
-            -p ${id}_profile.tsv > ${id}_spf.tsv
-=======
             -p ${id}_microbial_profile.tsv > ${id}_spf.tsv
->>>>>>> c41d91d (avoid name collision)
         """
     else
         """
@@ -270,12 +265,7 @@ process singleM {
             --otu-table ${id}_microbial_otus.tsv
 
         singlem prokaryotic_fraction -1 ${fastqs[0]} -2 ${fastqs[1]} \
-<<<<<<< HEAD
-            --metapackage ${params.metapackage} \
-            -p ${id}_profile.tsv > ${id}_spf.tsv
-=======
             -p ${id}_microbial_profile.tsv > ${id}_spf.tsv
->>>>>>> c41d91d (avoid name collision)
         """
 }
 
