@@ -2,6 +2,7 @@ params.trim_left = 3
 params.read_length = 280
 params.cut_forward = 5
 params.cut_reverse = 20
+params.min_score = 20
 params.maxEE = 8
 params.merge = true
 params.min_overlap = 8
