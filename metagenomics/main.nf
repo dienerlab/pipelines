@@ -244,30 +244,38 @@ process singleM {
     tuple val(id), path(fastqs), path(json), path(html)
 
     output:
-    tuple val(id), path("${id}_profile.tsv"), path("${id}_otus.tsv"), path("${id}_spf.tsv")
+    tuple val(id), path("${id}_microbial_profile.tsv"), path("${id}_microbial_otus.tsv"), path("${id}_spf.tsv")
 
     script:
     if (params.single_end)
         """
         singlem pipe -1 ${fastqs} --threads ${task.cpus} \
             --metapackage ${params.metapackage} \
-            -p ${id}_profile.tsv \
-            --otu-table ${id}_otus.tsv
+            -p ${id}_microbial_profile.tsv \
+            --otu-table ${id}_microbial_otus.tsv
 
         singlem prokaryotic_fraction -1 ${fastqs} \
+<<<<<<< HEAD
             --metapackage ${params.metapackage} \
             -p ${id}_profile.tsv > ${id}_spf.tsv
+=======
+            -p ${id}_microbial_profile.tsv > ${id}_spf.tsv
+>>>>>>> c41d91d (avoid name collision)
         """
     else
         """
         singlem pipe -1 ${fastqs[0]} -2 ${fastqs[1]} --threads ${task.cpus} \
             --metapackage ${params.metapackage} \
-            -p ${id}_profile.tsv \
-            --otu-table ${id}_otus.tsv
+            -p ${id}_microbial_profile.tsv \
+            --otu-table ${id}_microbial_otus.tsv
 
         singlem prokaryotic_fraction -1 ${fastqs[0]} -2 ${fastqs[1]} \
+<<<<<<< HEAD
             --metapackage ${params.metapackage} \
             -p ${id}_profile.tsv > ${id}_spf.tsv
+=======
+            -p ${id}_microbial_profile.tsv > ${id}_spf.tsv
+>>>>>>> c41d91d (avoid name collision)
         """
 }
 
@@ -280,22 +288,22 @@ process lyrebird {
     tuple val(id), path(fastqs), path(json), path(html)
 
     output:
-    tuple val(id), path("${id}_profile.tsv"), path("${id}_otus.tsv")
+    tuple val(id), path("${id}_viral_profile.tsv"), path("${id}_viral_otus.tsv")
 
     script:
     if (params.single_end)
         """
         lyrebird pipe -1 ${fastqs} --threads ${task.cpus} \
             --metapackage ${params.viralpackage} \
-            -p ${id}_profile.tsv \
-            --otu-table ${id}_otus.tsv
+            -p ${id}_viral_profile.tsv \
+            --otu-table ${id}_viral_otus.tsv
         """
     else
         """
         lyrebird pipe -1 ${fastqs[0]} -2 ${fastqs[1]} --threads ${task.cpus} \
             --metapackage ${params.viralpackage} \
-            -p ${id}_profile.tsv \
-            --otu-table ${id}_otus.tsv
+            -p ${id}_viral_profile.tsv \
+            --otu-table ${id}_viral_otus.tsv
         """
 }
 
