@@ -1,7 +1,7 @@
 params.trim_left = 3
 params.read_length = 250
-params.trunc_forward = params.read_length - 5
-params.trunc_reverse = params.read_length - 20
+params.cut_forward = 5
+params.cut_reverse = 20
 params.maxEE = 2
 params.merge = true
 params.min_overlap = 8
@@ -43,8 +43,8 @@ def helpMessage() {
 
     Quality filter:
       --trim_left [int]             How many bases to trim from the 5' end of each read.
-      --trunc_forward [int]         Where to truncate forward reads. Default length - 5
-      --trunc_reverse [int]         Where to truncate reverse reads. Default length - 20.
+      --cut_forward [int]           How many bases to cut from forward reads at 3' end. Default 5.
+      --cut_reverse [int]           How many bases to cut from reverse reads at 3' end. Default 20.
       --maxEE [int]                 Maximum number of expected errors per read.
 
     Denoising:
