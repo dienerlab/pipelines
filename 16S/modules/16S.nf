@@ -1,4 +1,13 @@
 
+def safeInt(str) {
+    try {
+        return str.toInteger()
+    } catch (Exception _e) {
+        log.warn "Could not convert ${str} to integer, using default value."
+        return null
+    }
+}
+
 process find_files {
     cpus 1
     memory "4 GB"
@@ -91,7 +100,7 @@ process quality_control {
         stop("Can't continue with missing files :(")
     }
 
-    qc <- quality_control(files, min_score = 20)
+    qc <- quality_control(files, min_score = ${params.min_score})
     saveRDS(qc, "qc.rds")
     ggsave("qualities.png", pl = qc[["quality_plot"]] + theme_minimal(),
            width = 8, height = 4, dpi = 300)
@@ -125,9 +134,9 @@ process trim {
     manifest <- fread("${manifest}")[, "id" := as.character(id)]
 
     if ("reverse" %in% names(manifest)) {
-        trunc <- c(${params.trunc_forward}, ${params.trunc_reverse})
+        trunc <- c(${safeInt(params.read_length) - safeInt(params.cut_forward)}, ${safeInt(params.read_length) - safeInt(params.cut_reverse)})
     } else {
-        trunc <- ${params.trunc_forward}
+        trunc <- ${safeInt(params.read_length) - safeInt(params.cut_forward)}
     }
 
     procced <- preprocess(
