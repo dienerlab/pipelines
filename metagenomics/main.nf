@@ -265,6 +265,7 @@ process singleM {
             --otu-table ${id}_microbial_otus.tsv
 
         singlem prokaryotic_fraction -1 ${fastqs[0]} -2 ${fastqs[1]} \
+            --metapackage ${params.metapackage} \
             -p ${id}_microbial_profile.tsv > ${id}_spf.tsv
         """
 }
