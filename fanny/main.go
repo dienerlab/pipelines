@@ -285,7 +285,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		m.Author, runArg, truncLen, folderDate,
 	)
 
-	if _, err := os.Stat("/path/to/whatever"); err != nil {
+	if _, err := os.Stat(folderDate); !os.IsNotExist(err) {
 		s.ChannelMessageSend(
 			m.ChannelID,
 			fmt.Sprintf(
