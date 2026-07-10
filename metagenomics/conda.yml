@@ -24,5 +24,6 @@ dependencies:
   - fastplong
   - singlem>=0.21.3
   - spades
+  - seqkit
   - pip:
     - git+https://github.com/tyjo/coptr
