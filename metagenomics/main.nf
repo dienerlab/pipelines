@@ -474,25 +474,8 @@ process filter_transcripts {
 
     script:
     """
-    #!/usr/bin/env python
-
-    from Bio import SeqIO
-    import os
-    import gzip
-
-    os.system("cat ${transcripts} > merged.fna")
-    print("Reading transcript indices...")
-    transcripts = SeqIO.index("merged.fna", "fasta")
-    print("Reading protein indices...")
-    proteins_idx = set(SeqIO.index("${proteins}", "fasta"))
-    print("Writing filtered transcripts...")
-
-    with gzip.open("transcripts.fna.gz", "wb") as out:
-        for i, id in enumerate(proteins_idx, start=1):
-            out.write(transcripts.get_raw(id))
-            if (i % 100000) == 0:
-                print(f"Processed {i} proteins.")
-    os.system("rm merged.fna")
+    seqkit grep -f <(seqkit seq -n -i ${proteins}) \
+        ${transcripts} -o transcripts.fna.gz
     """
 }
 
