@@ -273,7 +273,7 @@ process singleM {
 process lyrebird {
     cpus 3
     memory 8.GB
-    time 2.h
+    time 4.h
 
     input:
     tuple val(id), path(fastqs), path(json), path(html)
