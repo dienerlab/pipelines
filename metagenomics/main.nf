@@ -398,16 +398,15 @@ process assemble {
     script:
     if (params.single_end && params.method == "illumina")
         """
-        spades.py -s ${reads} --phred-offset 33 \
-            -o spades -t ${task.cpus} -m ${task.memory.toGiga()}
-        sed -i -e "s/^>/>${id}_/" spades/contigs.fasta
+        megahit -r ${reads} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
+                --min-contig-len ${params.contig_length} --out-prefix ${id}
+        sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
     else if (!params.single_end && params.method == "illumina")
         """
-        spades.py -1 ${reads[0]} -2 ${reads[1]} --phred-offset 33 \
-            -o spades -t ${task.cpus} -m ${task.memory.toGiga()} \
-            --meta
-        sed -i -e "s/^>/>${id}_/" spades/contigs.fasta
+        megahit -1 ${reads[0]} -2 ${reads[1]} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
+                --min-contig-len ${params.contig_length} --out-prefix ${id}
+        sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
     else if (params.method == "nanopore" || params.method == "pacbio")
         """
