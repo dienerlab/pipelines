@@ -393,7 +393,7 @@ process assemble {
     tuple val(id), path(reads), path(json), path(report)
 
     output:
-    tuple val(id), path("spades/contigs.fasta")
+    tuple val(id), path("contigs/${id}.contigs.fa")
 
     script:
     if (params.single_end && params.method == "illumina")
