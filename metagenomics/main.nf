@@ -386,7 +386,7 @@ process multiqc {
 
 process assemble {
     cpus 4
-    memory 24.GB
+    memory 16.GB
     time 12.h
 
     input:
