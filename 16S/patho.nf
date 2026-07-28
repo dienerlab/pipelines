@@ -10,7 +10,6 @@ params.forward_only = false
 params.refs = env("DLP") ? "/home/isilon/dienerlab/refs" : "${launchDir}/refs"
 params.taxa_db = "${params.refs}/silva_nr99_v138.2_toGenus_trainset.fa.gz"
 params.species_db = "${params.refs}/silva_v138.2_assignSpecies.fa.gz"
-params.threads = 16
 params.manifest = null
 params.pattern = "patho"
 params.run = "latest"
@@ -31,8 +30,6 @@ def helpMessage() {
       --data_dir [str]              The main data directory for the analysis (must contain `raw`).
       --read_length [int]           The length of the reads.
       --forward-only [bool]         Run analysis only on forward reads.
-      --threads [int]               The maximum number of threads a single process can use.
-                                    This is not the same as the maximum number of total threads used.
       --manifest [str]              A manifest file listing the files to be processed. Should be a CSV file with
                                     columns "id", "forward", "reverse" (optional), and "run" (optional). Listing the
                                     sample IDs and read files. If samples were sequenced in different runs indicate
@@ -74,7 +71,7 @@ workflow {
     log.info "Will save results to '${params.data_dir}'."
 
     runID = channel.of(params.run)
-    manifest = download_raw_files(runID) | find_files
+    manifest = download_raw_files(runID) | find_files | annotate_samples
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
@@ -138,7 +135,7 @@ output {
 
 process download_raw_files {
     cpus 1
-    memory "4 GB"
+    memory 512.MB
     time "1h"
 
     input:
@@ -157,10 +154,33 @@ process download_raw_files {
     """
 }
 
+process annotate_samples {
+    cpus 1
+    memory 512.MB
+    time "1h"
+
+    input:
+    tuple path(manifest), path(raw_dir)
+
+    output:
+    tuple path("manifest_annotated.csv"), path(raw_dir)
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+
+    files <- read_csv("${manifest}") |> mutate(id = as.character(id))
+    man <- readxl::read_excel(Sys.glob("raw/*_v11.xlsx"), skip=9) |>
+        mutate(Barcode = str_split_i(Barcode, " ", 2), sample_id = `Externe ID`) |>
+        drop_na(sample_id) |>
+        mutate(type = c("sample", "control")[str_detect(sample_id, "pos|neg") + 1])
+    merged <- man |> inner_join(sdata, by=join_by(Barcode==id))
+    write_csv(merged, "manifest_annotated.csv")
+    """
 
 process report {
     cpus 1
-    memory "8 GB"
+    memory 4.GB
     time "1h"
 
     input:
@@ -178,7 +198,7 @@ process report {
 
 process upload {
     cpus 1
-    memory 4.GB
+    memory 512.MB
     time 1.h
 
     input:

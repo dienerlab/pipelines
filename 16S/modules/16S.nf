@@ -10,7 +10,7 @@ def safeInt(str) {
 
 process find_files {
     cpus 1
-    memory "4 GB"
+    memory 512.MB
     time "10 m"
 
     input:
@@ -47,8 +47,8 @@ process find_files {
 }
 
 process quality_control {
-    cpus params.threads
-    memory "32 GB"
+    cpus 4
+    memory {200.MB * manifest.countLines() }
     time "8h"
 
     input:
@@ -67,7 +67,7 @@ process quality_control {
     library(miso)
     library(futile.logger)
 
-    PREFIX = "raw_dir"
+    PREFIX = "${raw_dir}"
 
     flog.appender(appender.file("qc.log"))
 
@@ -112,8 +112,8 @@ process quality_control {
 }
 
 process trim {
-    cpus params.threads
-    memory "16 GB"
+    cpus 6
+    memory 12.GB
     time "24h"
 
     input:
@@ -152,9 +152,9 @@ process trim {
 }
 
 process denoise {
-    cpus params.threads
-    memory "64 GB"
-    time "2d"
+    cpus 10
+    memory 32.GB
+    time "1d"
 
     input:
     tuple path(procced), path(artifact), path(log)
@@ -205,9 +205,9 @@ process denoise {
 }
 
 process tree {
-    cpus params.threads
-    memory "64 GB"
-    time "24h"
+    cpus 4
+    memory 8.GB
+    time "8h"
 
     input:
     tuple path(stats), path(denoised), path(ps), path(log), path(error_plots)
