@@ -177,6 +177,7 @@ process annotate_samples {
     merged <- man |> inner_join(files, by="Barcode")
     write_csv(merged, "manifest_annotated.csv")
     """
+}
 
 process report {
     cpus 1
