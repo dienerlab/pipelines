@@ -61,19 +61,10 @@ qc$length_plot +
 
 ```{r}
 ps <- readRDS(file.path(rdata, "phyloseq_with_tree.rds"))
-man <- readxl::read_excel(Sys.glob("raw/*.xlsx")[1], skip=9) |>
-  mutate(Barcode = str_split_i(Barcode, " ", 2), sample_id = `Externe ID`) |>
-  drop_na(sample_id) |>
-  mutate(type = c("sample", "control")[str_detect(sample_id, "pos|neg") + 1])
-sdata <- sample_data(ps) |> as("data.frame")
-sdata <- man |> inner_join(sdata, by=join_by(Barcode==id)) |> as.data.frame()
-rownames(sdata) <- sdata[["Barcode"]]
-sample_data(ps) <- sdata
-sample_names(ps) <- sample_data(ps)[["sample_id"]]
 ```
 
 ```{r}
-sample_sums(ps) |> enframe("sample", "library_size")
+sample_sums(ps) |> enframe("sample_id", "library_size")
 ```
 
 Convert abundances to long tables for ASVs and Genera.
@@ -126,6 +117,6 @@ ord <- ordinate(ps, method="PCoA", distance="bray")
 ```
 
 ```{r, fig.width=6, fig.height=4}
-plot_ordination(ps, ord, label="sample_id", color="type")
+plot_ordination(ps, ord, label="id", color="type")
 ggsave("figures/pcoa.png", dpi=300, width=6, height=4)
 ```

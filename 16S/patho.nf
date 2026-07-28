@@ -169,12 +169,12 @@ process annotate_samples {
     """
     #!/usr/bin/env Rscript
 
-    files <- read_csv("${manifest}") |> mutate(id = as.character(id))
+    files <- read_csv("${manifest}") |> mutate(Barcode = as.character(id)) |> select(!id)
     man <- readxl::read_excel(Sys.glob("raw/*_v11.xlsx"), skip=9) |>
-        mutate(Barcode = str_split_i(Barcode, " ", 2), sample_id = `Externe ID`) |>
+        mutate(Barcode = str_split_i(Barcode, " ", 2), id = `Externe ID`) |>
         drop_na(sample_id) |>
-        mutate(type = c("sample", "control")[str_detect(sample_id, "pos|neg") + 1])
-    merged <- man |> inner_join(sdata, by=join_by(Barcode==id))
+        mutate(type = c("sample", "control")[str_detect(id, "pos|neg") + 1])
+    merged <- man |> inner_join(files, by="Barcode")
     write_csv(merged, "manifest_annotated.csv")
     """
 
