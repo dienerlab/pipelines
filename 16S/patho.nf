@@ -69,6 +69,7 @@ workflow {
 
     runID = channel.of(params.run)
     manifest = download_raw_files(runID) | find_files | annotate_samples
+    length_check(manifest)
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
@@ -77,12 +78,14 @@ workflow {
         .mix(denoise.out.map{it -> it[1]})
         .mix(tree.out.map{it -> it[1]})
         .mix(quality_control.out.map{it -> it[2]})
+        .mix(length_check.out)
         .mix(download_raw_files.out)
         .collect()
     )
 
     merged = quality_control.out.map{it -> tuple(it[2], it[3])}
         .mix(trim.out.map{it -> tuple(it[1], it[2])})
+        .mix(length_check.out)
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
