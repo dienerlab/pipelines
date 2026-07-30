@@ -201,15 +201,16 @@ process length_check {
 
     AMPLEN <- 806 - 515 + 1
     MITOLEN <- 207
+    W <- ${params.window}
 
     man <- fread("${manifest}")
     res <- list()
     for (fq in man[["forward"]]) {
         reads <- readFastq(fq)
         lengths <- width(sread(reads))
-        target_amplicons = sum(between(lengths, AMPLEN - params.window, AMPLEN + params.window))
-        mitochondrial_amplicons = sum(between(lengths, MITOLEN - params.window, MITOLEN + params.window))
-        daisy_chains = sum((lengths[lengths > AMPLEN + 100] %% AMPLEN) <= 10)
+        target_amplicons = sum(between(lengths, AMPLEN - W, AMPLEN + W))
+        mitochondrial_amplicons = sum(between(lengths, MITOLEN - W, MITOLEN + W))
+        daisy_chains = sum((lengths[lengths > AMPLEN + 100] %% AMPLEN) <= W)
         res[[fq]] <- data.table(
             id = man[forward == fq, id],
             total_reads = length(reads),
