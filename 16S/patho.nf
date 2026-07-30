@@ -231,7 +231,7 @@ process report {
     time "1h"
 
     input:
-    tuple path(template), path(denoised), path(ps_with_tree), path(qc), path(raw)
+    tuple path(template), path(denoised), path(ps_with_tree), path(qc), path(lengths), path(raw)
 
     output:
     tuple path("report.html"), path("figures/*.*"), path("tables/*.*")
