@@ -48,7 +48,7 @@ process find_files {
 
 process quality_control {
     cpus 4
-    memory {200.MB * manifest.countLines() }
+    memory 4.GB
     time "8h"
 
     input:

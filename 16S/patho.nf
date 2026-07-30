@@ -13,7 +13,7 @@ params.species_db = "${params.refs}/silva_v138.2_assignSpecies.fa.gz"
 params.manifest = null
 params.pattern = "patho"
 params.run = "latest"
-params.data_dir = "${launchDir}/${params.run.replaceAll('-', '').split('__')[0]}"
+params.upload = false
 
 
 include { find_files; quality_control; trim; denoise; tables; tree } from "./modules/16S.nf"
@@ -27,7 +27,6 @@ def helpMessage() {
     > nextflow run main.nf -resume
 
     General options:
-      --data_dir [str]              The main data directory for the analysis (must contain `raw`).
       --read_length [int]           The length of the reads.
       --forward-only [bool]         Run analysis only on forward reads.
       --manifest [str]              A manifest file listing the files to be processed. Should be a CSV file with
@@ -68,8 +67,6 @@ workflow {
     }
 
 
-    log.info "Will save results to '${params.data_dir}'."
-
     runID = channel.of(params.run)
     manifest = download_raw_files(runID) | find_files | annotate_samples
     manifest | quality_control | trim | denoise | tables
@@ -92,7 +89,7 @@ workflow {
         .mix(report.out)
         .flatten()
 
-    upload(merged.collect())
+//    upload(merged.collect())
 
 
     publish:
@@ -104,22 +101,22 @@ output {
     results {
         path { file ->
             if (file.extension == "png") {
-                return "${params.data_dir}/figures/"
+                return "figures/"
             }
             else if (file.extension == "rds") {
-                return "${params.data_dir}/r_data/"
+                return "r_data/"
             }
             else if (file.extension == "log") {
-                return "${params.data_dir}/logs/"
+                return "logs/"
             }
             else if (file.extension == "tree") {
-                return "${params.data_dir}/trees/"
+                return "trees/"
             }
             else if (file.extension == "csv") {
-                return "${params.data_dir}/tables/"
+                return "tables"
             }
             else {
-                return "${params.data_dir}/"
+                return ""
             }
         }
         mode "copy"
@@ -127,7 +124,6 @@ output {
     }
 
     reports {
-        path { params.data_dir }
         mode "copy"
         overwrite true
     }
@@ -169,10 +165,12 @@ process annotate_samples {
     """
     #!/usr/bin/env Rscript
 
+    library(tidyverse)
+
     files <- read_csv("${manifest}") |> mutate(Barcode = as.character(id)) |> select(!id)
     man <- readxl::read_excel(Sys.glob("raw/*.xlsx")[1], skip=9) |>
         mutate(Barcode = str_split_i(Barcode, " ", 2), id = `Externe ID`) |>
-        drop_na(sample_id) |>
+        drop_na(id) |>
         mutate(type = c("sample", "control")[str_detect(id, "pos|neg") + 1])
     merged <- man |> inner_join(files, by="Barcode")
     write_csv(merged, "manifest_annotated.csv")
