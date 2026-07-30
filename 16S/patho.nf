@@ -182,7 +182,7 @@ process annotate_samples {
 
 process length_check {
     cpus 1
-    memory 512.MB
+    memory 4.GB
     time "1h"
 
     input:
