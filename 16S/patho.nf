@@ -216,7 +216,7 @@ process length_check {
             mitochondrial = mitochondrial_amplicons,
             daisy_chains = daisy_chains,
             other = length(reads) - target_amplicons - mitochondrial_amplicons - daisy_chains,
-            target_fraction = target / length(reads),
+            target_fraction = target_amplicons / length(reads),
             mitochondrial_fraction = mitochondrial_amplicons / length(reads),
             daisy_chain_fraction = daisy_chains / length(reads)
         )
