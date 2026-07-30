@@ -179,6 +179,51 @@ process annotate_samples {
     """
 }
 
+process length_check {
+    cpus 1
+    memory 512.MB
+    time "1h"
+
+    input:
+    tuple path(manifest), path(raw_dir)
+
+    output:
+    tuple path("amplicon_types.csv")
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+
+    library(ShortRead)
+    library(data.table)
+
+    AMPLEN <- ${params.read_length} + 1
+
+    man <- fread("${manifest}")
+    res <- list()
+    for (fq in man[["forward"]]) {
+        reads <- readFastq(fq)
+        lengths <- width(sread(reads))
+        target_amplicons = sum(between(lengths, AMPLEN - 10, AMPLEN + 10))
+        mitochondrial_amplicons = sum(between(lengths, 197, 217))
+        daisy_chains = sum((lengths[lengths > AMPLEN + 100] %% AMPLEN) <= 10)
+        res[[fq]] <- data.table(
+            id = man[forward == fq, id],
+            total_reads = length(reads),
+            avg_length = mean(lengths),
+            target = target_amplicons,
+            mitochondrial = mitochondrial_amplicons,
+            daisy_chains = daisy_chains,
+            other = length(reads) - target_amplicons - mitochondrial_amplicons - daisy_chains,
+            target_fraction = target / length(reads),
+            mitochondrial_fraction = mitochondrial_amplicons / length(reads),
+            daisy_chain_fraction = daisy_chains / length(reads)
+        )
+    }
+    rbindlist(res) |> fwrite("amplicon_types.csv")
+    """
+}
+
 process report {
     cpus 1
     memory 4.GB
