@@ -14,6 +14,7 @@ params.manifest = null
 params.pattern = "patho"
 params.run = "latest"
 params.upload = false
+params.window = 15
 
 
 include { find_files; quality_control; trim; denoise; tables; tree } from "./modules/16S.nf"
@@ -198,15 +199,16 @@ process length_check {
     library(ShortRead)
     library(data.table)
 
-    AMPLEN <- ${params.read_length} + 1
+    AMPLEN <- 806 - 515 + 1
+    MITOLEN <- 207
 
     man <- fread("${manifest}")
     res <- list()
     for (fq in man[["forward"]]) {
         reads <- readFastq(fq)
         lengths <- width(sread(reads))
-        target_amplicons = sum(between(lengths, AMPLEN - 10, AMPLEN + 10))
-        mitochondrial_amplicons = sum(between(lengths, 197, 217))
+        target_amplicons = sum(between(lengths, AMPLEN - params.window, AMPLEN + params.window))
+        mitochondrial_amplicons = sum(between(lengths, MITOLEN - params.window, MITOLEN + params.window))
         daisy_chains = sum((lengths[lengths > AMPLEN + 100] %% AMPLEN) <= 10)
         res[[fq]] <- data.table(
             id = man[forward == fq, id],
