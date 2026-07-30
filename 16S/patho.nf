@@ -170,7 +170,7 @@ process annotate_samples {
     #!/usr/bin/env Rscript
 
     files <- read_csv("${manifest}") |> mutate(Barcode = as.character(id)) |> select(!id)
-    man <- readxl::read_excel(Sys.glob("raw/*_v11.xlsx"), skip=9) |>
+    man <- readxl::read_excel(Sys.glob("raw/*.xlsx")[1], skip=9) |>
         mutate(Barcode = str_split_i(Barcode, " ", 2), id = `Externe ID`) |>
         drop_na(sample_id) |>
         mutate(type = c("sample", "control")[str_detect(id, "pos|neg") + 1])
