@@ -189,7 +189,7 @@ process length_check {
     tuple path(manifest), path(raw_dir)
 
     output:
-    tuple path("amplicon_types.csv")
+    path("amplicon_types.csv")
 
     script:
     """
