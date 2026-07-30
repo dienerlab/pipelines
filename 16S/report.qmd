@@ -69,7 +69,7 @@ amplis <- read_csv("amplicon_types.csv") |>
 
 ggplot(amplis) +
   aes(x=id, y=reads, fill=type) +
-  geom_bar(position="stack", color="white") +
+  geom_bar(stat="identity", position="stack", color="white") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
 ggsave("figures/amplicon_types.png", width=8, height=6, dpi=300)
