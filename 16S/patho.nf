@@ -219,10 +219,9 @@ process length_check {
             avg_length = mean(lengths),
             target = target,
             mitochondrial = mitochondrial,
-            short = short,
+            short = short - mitochondrial,
             long = long - daisy_chains,
             daisy_chains = daisy_chains,
-            other = length(reads) - target - mitochondrial - daisy_chains,
             target_fraction = target / length(reads),
             mitochondrial_fraction = mitochondrial / length(reads),
             daisy_chain_fraction = daisy_chains / length(reads)
