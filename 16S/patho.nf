@@ -241,12 +241,13 @@ process report {
     tuple path(template), path(denoised), path(ps_with_tree), path(qc), path(lengths), path(raw)
 
     output:
-    tuple path("report.html"), path("figures/*.png"), path("tables/*.csv")
+    tuple path("report.html"), path("*.png"), path("*.csv")
 
     script:
     """
     mkdir r_data && mv *.rds r_data && mkdir figures && mkdir tables
     quarto render ${template} --execute --to html --output report.html
+    rm *.csv *.png && mv tables/*.csv . && mv figures/*.png .
     """
 }
 
