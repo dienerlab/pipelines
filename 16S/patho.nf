@@ -208,8 +208,10 @@ process length_check {
     for (fq in man[["forward"]]) {
         reads <- readFastq(fq)
         lengths <- width(sread(reads))
-        target_amplicons = sum(between(lengths, AMPLEN - W, AMPLEN + W))
-        mitochondrial_amplicons = sum(between(lengths, MITOLEN - W, MITOLEN + W))
+        short <- sum(lengths < AMPLEN - W)
+        long <- sum(lengths > AMPLEN + W)
+        target = sum(between(lengths, AMPLEN - W, AMPLEN + W))
+        mitochondrial = sum(between(lengths, MITOLEN - W, MITOLEN + W))
         daisy_chains = sum((lengths[lengths > AMPLEN + 100] %% AMPLEN) <= W)
         res[[fq]] <- data.table(
             id = man[forward == fq, id],
@@ -217,6 +219,8 @@ process length_check {
             avg_length = mean(lengths),
             target = target_amplicons,
             mitochondrial = mitochondrial_amplicons,
+            short = short,
+            long = long - daisy_chains,
             daisy_chains = daisy_chains,
             other = length(reads) - target_amplicons - mitochondrial_amplicons - daisy_chains,
             target_fraction = target_amplicons / length(reads),

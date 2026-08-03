@@ -62,7 +62,7 @@ We get a more detailed overview of amplicon length variations in the amplicon ty
 ```{r}
 amplis <- read_csv("amplicon_types.csv") |>
   pivot_longer(
-    cols = c(target, mitochondrial, daisy_chains, other),
+    cols = c(target, mitochondrial, short, long, daisy_chains, other),
     names_to="type",
     values_to="reads"
   )
