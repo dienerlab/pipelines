@@ -99,7 +99,6 @@ workflow {
 
     publish:
     results = merged
-    reports = report.out.flatten()
 }
 
 output {
@@ -124,11 +123,6 @@ output {
                 return ""
             }
         }
-        mode "copy"
-        overwrite true
-    }
-
-    reports {
         mode "copy"
         overwrite true
     }
