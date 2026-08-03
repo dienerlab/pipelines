@@ -302,7 +302,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	cmd := exec.Command(
 		"nextflow", "run", "-resume",
 		filepath.Join(Pipelines, "16S", "patho.nf"),
-		"--run", runArg, "--read_length", strconv.Itoa(truncLen),
+		"--run", runArg, "--read_length", strconv.Itoa(truncLen), "--upload",
 		"-with-conda", filepath.Join(Envs, "16S"),
 		"-profile", "standard,collab", "-output-dir", folderDate,
 	)
