@@ -241,7 +241,7 @@ process report {
     """
     mkdir r_data && mv *.rds r_data && mkdir figures && mkdir tables
     quarto render ${template} --execute --to html --output report.html
-    rm *.csv *.png && mv tables/*.csv . && mv figures/*.png .
+    rm -f *.csv *.png && mv tables/*.csv . && mv figures/*.png .
     """
 }
 
