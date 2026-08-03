@@ -93,8 +93,9 @@ workflow {
         .mix(report.out)
         .flatten()
 
-//    upload(merged.collect())
-
+    if (params.upload) {
+        upload(merged.collect())
+    }
 
     publish:
     results = merged
