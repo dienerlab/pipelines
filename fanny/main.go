@@ -304,7 +304,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		filepath.Join(Pipelines, "16S", "patho.nf"),
 		"--run", runArg, "--read_length", strconv.Itoa(truncLen),
 		"-with-conda", filepath.Join(Envs, "16S"),
-		"-profile", "standard,collab",
+		"-profile", "standard,collab", "-output-dir", folderDate,
 	)
 
 	s.ChannelMessageSend(
@@ -330,6 +330,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	// Collect output files
 	var files []*discordgo.File
 	paths := []struct{ name, path string }{
+		{"amplicon_types.png", filepath.Join(folderDate, "figures", "amplicon_types.png")},
 		{"genus.png", filepath.Join(folderDate, "figures", "genus_top12.png")},
 		{"read_stats.csv", filepath.Join(folderDate, "tables", "read_stats.csv")},
 	}
