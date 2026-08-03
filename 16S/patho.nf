@@ -90,7 +90,7 @@ workflow {
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
-        .mix(report.out)
+        .mix(report.out.flatten())
         .flatten()
 
     if (params.upload) {
@@ -241,7 +241,7 @@ process report {
     tuple path(template), path(denoised), path(ps_with_tree), path(qc), path(lengths), path(raw)
 
     output:
-    tuple path("report.html"), path("figures/*.*"), path("tables/*.*")
+    tuple path("report.html"), path("figures/*.png"), path("tables/*.csv")
 
     script:
     """
