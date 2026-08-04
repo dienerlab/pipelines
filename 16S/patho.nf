@@ -195,8 +195,9 @@ process length_check {
     library(data.table)
 
     AMPLEN <- 806 - 515 + 1
-    MITOLEN <- 207
     W <- ${params.window}
+    MITO <- "GTGCCAGCCACCGCGGTCACACGATTAACCCAAGTCAATAGAAGCCGGCGTAAAGAGTGTTTTAGATCACCCCCTCCCCAATAAAGCTAAAACTCACCTGAGTTGTAAAAAACTCCAGTTGACACAAAATAGACTACGAAAGTGGCTTTAACATATCTGAACACACAATAGCTAAGACCCAAACTGGGATTAGATACCCCACTATGCT"
+    CHLORO <- "GTGCCAGCAGCCGCGGTAATACAGAGGATGCAAGCGTTATCCGGAATGATTGGGCGTAAAGCGTCTGTAGGTGGCTTTTTAAGTCCGCCGTCAAATCCCAGGGCTCAACCCTGGACAGGCGGTGGAAACTACCAAGCTTGAGTACGGTAGGGGCAGAGGGAATTTCCGGTGGAGCGGTGAAATGCGTAGAGATCGGAAAGAACACCAACGGCGAAAGCACTCTGCTGGGCCGACACTGACACTGAGAGACGAAAGCTAGGGGAGCGAATGGGATTAGATACCCCAGTAGTCC"
 
     man <- fread("${manifest}")
     res <- list()
@@ -206,20 +207,20 @@ process length_check {
         short <- sum(lengths < AMPLEN - W)
         long <- sum(lengths > AMPLEN + W)
         target = sum(between(lengths, AMPLEN - W, AMPLEN + W))
-        mitochondrial = sum(between(lengths, MITOLEN - W, MITOLEN + W))
-        daisy_chains = sum((lengths[lengths > AMPLEN + 100] %% AMPLEN) <= W)
+        mitochondrial = vcountPattern(MITO, sread(reads), with.indels = TRUE, max.mismatch = 10) |> sum()
+        chloroplast = vcountPattern(CHLORO, sread(reads), with.indels = TRUE, max.mismatch = 10) |> sum()
         res[[fq]] <- data.table(
             id = man[forward == fq, id],
             total_reads = length(reads),
             avg_length = mean(lengths),
             target = target,
             mitochondrial = mitochondrial,
-            short = short - mitochondrial,
-            long = long - daisy_chains,
-            daisy_chains = daisy_chains,
+            chloroplast = chloroplast,
+            short = short,
+            long = long,
             target_fraction = target / length(reads),
             mitochondrial_fraction = mitochondrial / length(reads),
-            daisy_chain_fraction = daisy_chains / length(reads)
+            chloroplast_fraction = chloroplast / length(reads)
         )
     }
     rbindlist(res) |> fwrite("amplicon_types.csv")
@@ -265,5 +266,3 @@ process upload {
         "nextcloud:/Patho 16S sequencing/${params.run.replaceAll('-', '').split('__')[0]}"
     """
 }
-
-

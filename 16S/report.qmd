@@ -62,16 +62,17 @@ We get a more detailed overview of amplicon length variations in the amplicon ty
 ```{r}
 amplis <- read_csv("amplicon_types.csv") |>
   pivot_longer(
-    cols = c(target, mitochondrial, short, long, daisy_chains),
+    cols = c(target, mitochondrial, chloroplast, short, long),
     names_to="type",
     values_to="reads"
   )
 
 ggplot(amplis) +
   aes(x=id, y=reads, fill=type) +
-  geom_bar(stat="identity", position="stack", color="white") +
-    geom_hline(yintercept=c(10e3, 100e3), linetype="dashed") +
+  geom_col(position="dodge2", color="white") +
+    geom_hline(yintercept=c(1e3, 10e3, 100e3), linetype="dashed") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_y_log10() +
   labs(x="", y="#reads")
 
 ggsave("figures/amplicon_types.png", width=8, height=6, dpi=300)
