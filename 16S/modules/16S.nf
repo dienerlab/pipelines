@@ -136,7 +136,7 @@ process trim {
     procced <- preprocess(
         qc,
         trimLeft = ${params.trim_left},
-        truncQ = ${params.truncQ},
+        truncQ = ${params.min_quality},
         maxEE = ${params.maxEE},
         out_dir = "preprocessed",
         threads = ${task.cpus}
