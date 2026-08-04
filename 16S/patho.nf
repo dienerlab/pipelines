@@ -207,7 +207,7 @@ process length_check {
         long <- sum(lengths > AMPLEN + W)
         target = sum(between(lengths, AMPLEN - W, AMPLEN + W))
         mitochondrial = vcountPattern(MITO, sread(reads), with.indels = TRUE, max.mismatch = 10) |> sum()
-        chloroplast = vcountPattern(CHLORO, sread(reads), with.indels = TRUE, max.mismatch = 10) |> sum()
+        chloroplast = vcountPattern(CHLORO, sread(reads), with.indels = TRUE, max.mismatch = 5) |> sum()
         res[[fq]] <- data.table(
             id = man[forward == fq, id],
             total_reads = length(reads),
