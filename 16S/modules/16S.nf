@@ -133,16 +133,10 @@ process trim {
     qc <- readRDS("${qc}")
     manifest <- fread("${manifest}")[, "id" := as.character(id)]
 
-    if ("reverse" %in% names(manifest)) {
-        trunc <- c(${safeInt(params.read_length) - safeInt(params.cut_forward)}, ${safeInt(params.read_length) - safeInt(params.cut_reverse)})
-    } else {
-        trunc <- ${safeInt(params.read_length) - safeInt(params.cut_forward)}
-    }
-
     procced <- preprocess(
         qc,
         trimLeft = ${params.trim_left},
-        truncLen = trunc,
+        truncQ = ${params.truncQ},
         maxEE = ${params.maxEE},
         out_dir = "preprocessed",
         threads = ${task.cpus}
