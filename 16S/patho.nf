@@ -1,5 +1,7 @@
 params.trim_left = 3
 params.min_quality = 2
+params.forward_trunc = 280
+params.reverse_trunc = 260
 params.min_score = 20
 params.maxEE = 8
 params.merge = true

@@ -133,9 +133,16 @@ process trim {
     qc <- readRDS("${qc}")
     manifest <- fread("${manifest}")[, "id" := as.character(id)]
 
+    if ("reverse" %in% names(manifest)) {
+        trunc <- c(${params.forward_trunc}, ${params.reverse_trunc})
+    } else {
+        trunc <- ${params.forward_trunc}
+    }
+
     procced <- preprocess(
         qc,
         trimLeft = ${params.trim_left},
+        truncLen = trunc,
         truncQ = ${params.min_quality},
         maxEE = ${params.maxEE},
         out_dir = "preprocessed",
