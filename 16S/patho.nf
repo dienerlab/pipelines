@@ -167,7 +167,7 @@ process annotate_samples {
     man <- readxl::read_excel(Sys.glob("raw/*.xlsx")[1], skip=9) |>
         mutate(Barcode = str_split_i(Barcode, " ", 2), id = `Externe ID`) |>
         drop_na(id) |>
-        mutate(type = c("sample", "control")[str_detect(id, "pos|neg") + 1])
+        mutate(type = c("sample", "control")[str_detect(tolower(id), "^pos|^neg") + 1])
     merged <- man |> inner_join(files, by="Barcode")
     write_csv(merged, "manifest_annotated.csv")
     """
