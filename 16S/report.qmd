@@ -69,10 +69,10 @@ amplis <- read_csv("amplicon_types.csv") |>
 
 ggplot(amplis) +
   aes(x=id, y=reads, fill=type) +
-  geom_col(position="dodge2", color="white") +
+  geom_col(position="dodge2") +
     geom_hline(yintercept=c(1e3, 10e3, 100e3), linetype="dashed") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
-  scale_y_log10() +
+  scale_y_sqrt(breaks=c(0, 10^(2:7))) +
   labs(x="", y="#reads")
 
 ggsave("figures/amplicon_types.png", width=8, height=6, dpi=300)
