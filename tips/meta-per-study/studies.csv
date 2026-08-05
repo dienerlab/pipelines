@@ -1,0 +1,3 @@
+id,layout,forward_primer,reverse_primer,trunc_f,trunc_r,location
+study 1,paired,ACG,TGC,220,200,study_1
+study 2,single,ACT,GCT,220,0,study_2
