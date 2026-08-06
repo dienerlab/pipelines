@@ -108,27 +108,9 @@ workflow {
         lyrebird.out.map{it -> it[2]}.collect()
     )
 
-<<<<<<< HEAD
     mergePF(
         singleM.out.map{it -> it[3]}.collect()
     )
-=======
-    // buffer the samples into batches
-    batched = preprocess.out
-        .collate(params.batchsize.toInteger())
-        .map{it -> tuple(it.collect{a -> a[0]}, it.collect{a -> a[1]}.flatten().sort())}
-    // run Kraken2
-    kraken(batched)
-    reports = kraken.out
-        .flatMap{k -> k[1]}
-        .map{k -> tuple k.baseName.split(".tsv")[0], k}
-
-    count_taxa(reports.combine(levels))
-    count_taxa.out.map{s -> tuple(s[1], s[3])}
-        .groupTuple()
-        .set{merge_groups}
-    merge_taxonomy(merge_groups)
->>>>>>> main
 
     // quality overview
     multiqc(
