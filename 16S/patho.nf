@@ -1,7 +1,8 @@
 params.trim_left = 3
-params.read_length = 280
-params.trunc_forward = params.read_length - 5
-params.trunc_reverse = params.read_length - 20
+params.min_quality = 2
+params.forward_trunc = 280
+params.reverse_trunc = 260
+params.min_score = 20
 params.maxEE = 8
 params.merge = true
 params.min_overlap = 8
@@ -9,11 +10,11 @@ params.forward_only = false
 params.refs = env("DLP") ? "/home/isilon/dienerlab/refs" : "${launchDir}/refs"
 params.taxa_db = "${params.refs}/silva_nr99_v138.2_toGenus_trainset.fa.gz"
 params.species_db = "${params.refs}/silva_v138.2_assignSpecies.fa.gz"
-params.threads = 16
 params.manifest = null
 params.pattern = "patho"
 params.run = "latest"
-params.data_dir = "${launchDir}/${params.run.replaceAll('-', '').split('__')[0]}"
+params.upload = false
+params.window = 15
 
 
 include { find_files; quality_control; trim; denoise; tables; tree } from "./modules/16S.nf"
@@ -27,11 +28,8 @@ def helpMessage() {
     > nextflow run main.nf -resume
 
     General options:
-      --data_dir [str]              The main data directory for the analysis (must contain `raw`).
       --read_length [int]           The length of the reads.
       --forward-only [bool]         Run analysis only on forward reads.
-      --threads [int]               The maximum number of threads a single process can use.
-                                    This is not the same as the maximum number of total threads used.
       --manifest [str]              A manifest file listing the files to be processed. Should be a CSV file with
                                     columns "id", "forward", "reverse" (optional), and "run" (optional). Listing the
                                     sample IDs and read files. If samples were sequenced in different runs indicate
@@ -45,8 +43,7 @@ def helpMessage() {
 
     Quality filter:
       --trim_left [int]             How many bases to trim from the 5' end of each read.
-      --trunc_forward [int]         Where to truncate forward reads. Default length - 5
-      --trunc_reverse [int]         Where to truncate reverse reads. Default length - 20.
+      --min_quality [int]           Minimum quality used for 3' truncation.
       --maxEE [int]                 Maximum number of expected errors per read.
 
     Denoising:
@@ -70,10 +67,9 @@ workflow {
     }
 
 
-    log.info "Will save results to '${params.data_dir}'."
-
     runID = channel.of(params.run)
-    manifest = download_raw_files(runID) | find_files
+    manifest = download_raw_files(runID) | find_files | annotate_samples
+    length_check(manifest)
     manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
@@ -82,54 +78,50 @@ workflow {
         .mix(denoise.out.map{it -> it[1]})
         .mix(tree.out.map{it -> it[1]})
         .mix(quality_control.out.map{it -> it[2]})
+        .mix(length_check.out)
         .mix(download_raw_files.out)
         .collect()
     )
 
     merged = quality_control.out.map{it -> tuple(it[2], it[3])}
         .mix(trim.out.map{it -> tuple(it[1], it[2])})
+        .mix(length_check.out)
         .mix(denoise.out)
         .mix(tables.out)
         .mix(tree.out)
-        .mix(report.out)
+        .mix(report.out.flatten())
         .flatten()
 
-    upload(merged.collect())
-
+    if (params.upload) {
+        upload(merged.collect())
+    }
 
     publish:
     results = merged
-    reports = report.out.flatten()
 }
 
 output {
     results {
         path { file ->
             if (file.extension == "png") {
-                return "${params.data_dir}/figures/"
+                return "figures/"
             }
             else if (file.extension == "rds") {
-                return "${params.data_dir}/r_data/"
+                return "r_data/"
             }
             else if (file.extension == "log") {
-                return "${params.data_dir}/logs/"
+                return "logs/"
             }
             else if (file.extension == "tree") {
-                return "${params.data_dir}/trees/"
+                return "trees/"
             }
             else if (file.extension == "csv") {
-                return "${params.data_dir}/tables/"
+                return "tables"
             }
             else {
-                return "${params.data_dir}/"
+                return ""
             }
         }
-        mode "copy"
-        overwrite true
-    }
-
-    reports {
-        path { params.data_dir }
         mode "copy"
         overwrite true
     }
@@ -137,7 +129,7 @@ output {
 
 process download_raw_files {
     cpus 1
-    memory "4 GB"
+    memory 512.MB
     time "1h"
 
     input:
@@ -156,28 +148,106 @@ process download_raw_files {
     """
 }
 
-
-process report {
+process annotate_samples {
     cpus 1
-    memory "8 GB"
+    memory 512.MB
     time "1h"
 
     input:
-    tuple path(template), path(denoised), path(ps_with_tree), path(qc), path(raw)
+    tuple path(manifest), path(raw_dir)
 
     output:
-    tuple path("report.html"), path("figures/*.*"), path("tables/*.*")
+    tuple path("manifest_annotated.csv"), path(raw_dir)
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+
+    library(tidyverse)
+
+    files <- read_csv("${manifest}") |> mutate(Barcode = as.character(id)) |> select(!id)
+    man <- readxl::read_excel(Sys.glob("raw/*.xlsx")[1], skip=9) |>
+        mutate(Barcode = str_split_i(Barcode, " ", 2), id = `Externe ID`) |>
+        drop_na(id) |>
+        mutate(type = c("sample", "control")[str_detect(tolower(id), "^pos|^neg") + 1])
+    merged <- man |> inner_join(files, by="Barcode")
+    write_csv(merged, "manifest_annotated.csv")
+    """
+}
+
+process length_check {
+    cpus 1
+    memory 4.GB
+    time "1h"
+
+    input:
+    tuple path(manifest), path(raw_dir)
+
+    output:
+    path("amplicon_types.csv")
+
+    script:
+    """
+    #!/usr/bin/env Rscript
+
+    library(ShortRead)
+    library(data.table)
+
+    AMPLEN <- 806 - 515 + 1
+    W <- ${params.window}
+    MITO <- "GTGCCAGCCACCGCGGTCACACGATTAACCCAAGTCAATAGAAGCCGGCGTAAAGAGTGTTTTAGATCACCCCCTCCCCAATAAAGCTAAAACTCACCTGAGTTGTAAAAAACTCCAGTTGACACAAAATAGACTACGAAAGTGGCTTTAACATATCTGAACACACAATAGCTAAGACCCAAACTGGGATTAGATACCCCACTATGCT"
+    CHLORO <- "GTGCCAGCAGCCGCGGTAATACAGAGGATGCAAGCGTTATCCGGAATGATTGGGCGTAAAGCGTCTGTAGGTGGCTTTTTAAGTCCGCCGTCAAATCCCAGGGCTCAACCCTGGACAGGCGGTGGAAACTACCAAGCTTGAGTACGGTAGGGGCAGAGGGAATTTCCGGTGGAGCGGTGAAATGCGTAGAGATCGGAAAGAACACCAACGGCGAAAGCACTCTGCTGGGCCGACACTGACACTGAGAGACGAAAGCTAGGGGAGCGAATGGGATTAGATACCCCAGTAGTCC"
+
+    man <- fread("${manifest}")
+    res <- list()
+    for (fq in man[["forward"]]) {
+        reads <- readFastq(fq)
+        lengths <- width(sread(reads))
+        short <- sum(lengths < AMPLEN - W)
+        long <- sum(lengths > AMPLEN + W)
+        target = sum(between(lengths, AMPLEN - W, AMPLEN + W))
+        mitochondrial = vcountPattern(MITO, sread(reads), with.indels = TRUE, max.mismatch = 10) |> sum()
+        chloroplast = vcountPattern(CHLORO, sread(reads), with.indels = TRUE, max.mismatch = 5) |> sum()
+        res[[fq]] <- data.table(
+            id = man[forward == fq, id],
+            total_reads = length(reads),
+            avg_length = mean(lengths),
+            target = target,
+            mitochondrial = mitochondrial,
+            chloroplast = chloroplast,
+            short = short,
+            long = long,
+            target_fraction = target / length(reads),
+            mitochondrial_fraction = mitochondrial / length(reads),
+            chloroplast_fraction = chloroplast / length(reads)
+        )
+    }
+    rbindlist(res) |> fwrite("amplicon_types.csv")
+    """
+}
+
+process report {
+    cpus 1
+    memory 4.GB
+    time "1h"
+
+    input:
+    tuple path(template), path(denoised), path(ps_with_tree), path(qc), path(lengths), path(raw)
+
+    output:
+    tuple path("report.html"), path("*.png"), path("*.csv")
 
     script:
     """
     mkdir r_data && mv *.rds r_data && mkdir figures && mkdir tables
     quarto render ${template} --execute --to html --output report.html
+    rm -f *.csv *.png && mv tables/*.csv . && mv figures/*.png .
     """
 }
 
 process upload {
     cpus 1
-    memory 4.GB
+    memory 512.MB
     time 1.h
 
     input:
@@ -195,5 +265,3 @@ process upload {
         "nextcloud:/Patho 16S sequencing/${params.run.replaceAll('-', '').split('__')[0]}"
     """
 }
-
-

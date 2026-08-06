@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -34,6 +35,8 @@ import (
 const (
 	CpuTotal   = 1416
 	MemTotalGB = 9220.0
+	DiskTotal  = 40.0
+	DiskLoc    = "/home/isilon/dienerlab"
 )
 
 var (
@@ -41,6 +44,12 @@ var (
 	TargetChannel = os.Getenv("DISCORD_CHANNEL")
 	Envs          = os.Getenv("DLE")
 	Pipelines     = os.Getenv("DLP")
+	SizeSuffix    = map[string]float64{
+		"K": (1.0 / 1024 / 1024),
+		"M": (1.0 / 1024),
+		"G": 1.0,
+		"T": 1024.0,
+	}
 )
 
 // pipelineLock ensures exclusive execution of the pipeline to prevent resource conflicts.
@@ -53,12 +62,14 @@ var replacer = strings.NewReplacer("`", "", "\"", "", "'", "")
 func getEmoji[T int | float64](used, total T) string {
 	ratio := float64(used) / float64(total)
 	switch {
-	case ratio < 0.5:
+	case ratio < 0.25:
 		return "😇"
-	case ratio < 0.8:
+	case ratio < 0.5:
 		return "🫡"
-	case ratio <= 1.2:
+	case ratio < 0.75:
 		return "😰"
+	case ratio <= 1.0:
+		return "😭"
 	default:
 		return "😡"
 	}
@@ -110,6 +121,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	case "cluster":
 		if len(args) > 1 && args[2] == "status" {
 			handleClusterStatus(s, m)
+		} else if len(args) > 1 && args[2] == "disk" {
+			handleClusterDisk(s, m)
 		} else {
 			s.ChannelMessageSend(m.ChannelID, "❌ Unknown subcommand. Use `!fanny help`.")
 		}
@@ -127,7 +140,7 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
-	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "%C %m")
+	cmd := exec.Command("squeue", "-h", "-t", "running,pending", "-p", "cpu", "-o", "'%C %m'")
 	out, err := cmd.Output()
 	if err != nil {
 		log.Printf("Failed to query squeue: %v", err)
@@ -136,11 +149,11 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	cpuUsed := 0
-	memUsedMB := 0.0
+	memUsedGB := 0.0
 
 	lines := strings.Split(string(out), "\n")
 	for _, line := range lines {
-		fields := strings.Fields(line)
+		fields := strings.Fields(strings.Trim(line, "\"'"))
 		if len(fields) < 2 {
 			continue
 		}
@@ -150,12 +163,13 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 		cpuUsed += c
 
 		// Parse Memory (Handle suffixes if present)
-		memStr := strings.TrimRight(fields[1], "M")
-		m, _ := strconv.Atoi(memStr)
-		memUsedMB += float64(m)
+		memStr := strings.TrimRight(fields[1], "MGT")
+		m, err := strconv.Atoi(memStr)
+		if err != nil {
+			log.Printf("Could not parse squeue memory string: %s", memStr)
+		}
+		memUsedGB += float64(m) * SizeSuffix[fields[1][len(fields[1])-1:]]
 	}
-
-	memUsedGB := memUsedMB / 1024.0
 
 	_, err = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
 		Title:       "🖥️ MedBioNode status",
@@ -170,6 +184,72 @@ func handleClusterStatus(s *discordgo.Session, m *discordgo.MessageCreate) {
 			{
 				Name:   fmt.Sprintf("Memory %s", getEmoji(memUsedGB, MemTotalGB)),
 				Value:  fmt.Sprintf("%.1f/%.1f GB reserved.", memUsedGB, MemTotalGB),
+				Inline: true,
+			},
+		},
+	})
+
+	if err != nil {
+		log.Fatal("Failed to send the cluster status message.")
+	}
+}
+
+// handleClusterDisk gets the disk use in the dienerlab folder
+func handleClusterDisk(s *discordgo.Session, m *discordgo.MessageCreate) {
+	// Execute squeue without a shell. Includes both running and pending jobs.
+	log.Printf("Disk usage requested by %s.", m.Author)
+
+	s.MessageReactionAdd(m.ChannelID, m.ID, "🚧")
+
+	cmd := exec.Command("du", "-d", "1", DiskLoc)
+	out, err := cmd.Output()
+	if err != nil {
+		log.Printf("Failed to run du: %v", err)
+		s.ChannelMessageSend(m.ChannelID, "⚠️ Could not disk usage.")
+		return
+	}
+
+	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
+
+	var diskUsedBytes int = 0
+	largest := 0
+	var largestName string
+
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		if fields[1] == DiskLoc {
+			diskUsedBytes, _ = strconv.Atoi(fields[0])
+			continue
+		}
+
+		used, _ := strconv.Atoi(fields[0])
+		if used > largest {
+			largest = used
+			largestName = strings.Split(fields[1], DiskLoc)[1]
+		}
+	}
+
+	diskUsedTB := float64(diskUsedBytes) / math.Pow(1024.0, 3.0)
+	largestTB := float64(largest) / math.Pow(1024.0, 3.0)
+
+	_, err = s.ChannelMessageSendEmbed(m.ChannelID, &discordgo.MessageEmbed{
+		Title:       "🖥️ dienerlab storage",
+		Description: "Here is the disk space usage for our group directory.",
+		Color:       0x7289DA,
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name:   fmt.Sprintf("Disk Space %s", getEmoji(diskUsedTB, DiskTotal)),
+				Value:  fmt.Sprintf("%.2f/%.2f TB used.", diskUsedTB, DiskTotal),
+				Inline: true,
+			},
+			{
+				Name:   "Largest Folder 📁",
+				Value:  fmt.Sprintf("%s: %.2f TB.", largestName, largestTB),
 				Inline: true,
 			},
 		},
@@ -205,13 +285,26 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		m.Author, runArg, truncLen, folderDate,
 	)
 
+	if _, err := os.Stat(folderDate); !os.IsNotExist(err) {
+		s.ChannelMessageSend(
+			m.ChannelID,
+			fmt.Sprintf(
+				"⚠️ **The run `%s` has already been analyzed.**\n"+
+					"Rerunning the pipeline will only work if the pipeline itself was updated *not* "+
+					"if the sequencing manifest was changed. In case there are errors please ask "+
+					"Christian to remove the cache and results.",
+				folderDate,
+			),
+		)
+	}
+
 	// Execute Nextflow Patho pipeline
 	cmd := exec.Command(
 		"nextflow", "run", "-resume",
 		filepath.Join(Pipelines, "16S", "patho.nf"),
-		"--run", runArg, "--read_length", strconv.Itoa(truncLen),
+		"--run", runArg, "--read_length", strconv.Itoa(truncLen), "--upload",
 		"-with-conda", filepath.Join(Envs, "16S"),
-		"-profile", "standard,collab",
+		"-profile", "standard,collab", "-output-dir", folderDate,
 	)
 
 	s.ChannelMessageSend(
@@ -237,6 +330,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	// Collect output files
 	var files []*discordgo.File
 	paths := []struct{ name, path string }{
+		{"amplicon_types.png", filepath.Join(folderDate, "figures", "amplicon_types.png")},
 		{"genus.png", filepath.Join(folderDate, "figures", "genus_top12.png")},
 		{"read_stats.csv", filepath.Join(folderDate, "tables", "read_stats.csv")},
 	}
@@ -257,7 +351,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 
 You should be able to find the rest of the results in the folder '%s' at https://box.medunigraz.at/f/186637353 .
 Attached are the QC results and genus abundances.`,
-				runArg,
+				folderDate,
 			),
 			Color: 0x00FF00,
 		}},
@@ -289,6 +383,10 @@ func sendHelp(s *discordgo.Session, m *discordgo.MessageCreate) {
 			{
 				Name:  "!fanny cluster status",
 				Value: "Get the current cluster status like reserved CPUs and memory.",
+			},
+			{
+				Name:  "!fanny cluster disk",
+				Value: "Get the current disk space usage for the shared isilon storage.",
 			},
 			{
 				Name: "!fanny patho <run_id> [include-mito]",

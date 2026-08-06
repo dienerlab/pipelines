@@ -57,23 +57,35 @@ qc$length_plot +
   geom_vline(xintercept=AMPLEN, linetype="dashed", color="yellow", linewidth=1)
 ```
 
+We get a more detailed overview of amplicon length variations in the amplicon types. We will visualize those for each sample along with the library size.
+
+```{r}
+amplis <- read_csv("amplicon_types.csv") |>
+  pivot_longer(
+    cols = c(target, mitochondrial, chloroplast, short, long),
+    names_to="type",
+    values_to="reads"
+  )
+
+ggplot(amplis) +
+  aes(x=id, y=reads, fill=type) +
+  geom_col(position="dodge2") +
+    geom_hline(yintercept=c(1e3, 10e3, 100e3), linetype="dashed") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  scale_y_sqrt(breaks=c(0, 10^(2:7))) +
+  labs(x="", y="#reads")
+
+ggsave("figures/amplicon_types.png", width=8, height=6, dpi=300)
+```
+
 # Basic analysis
 
 ```{r}
 ps <- readRDS(file.path(rdata, "phyloseq_with_tree.rds"))
-man <- readxl::read_excel(Sys.glob("raw/*_v11.xlsx"), skip=9) |>
-  mutate(Barcode = str_split_i(Barcode, " ", 2), sample_id = `Externe ID`) |>
-  drop_na(sample_id) |>
-  mutate(type = c("sample", "control")[str_detect(sample_id, "pos|neg") + 1])
-sdata <- sample_data(ps) |> as("data.frame")
-sdata <- man |> inner_join(sdata, by=join_by(Barcode==id)) |> as.data.frame()
-rownames(sdata) <- sdata[["Barcode"]]
-sample_data(ps) <- sdata
-sample_names(ps) <- sample_data(ps)[["sample_id"]]
 ```
 
 ```{r}
-sample_sums(ps) |> enframe("sample", "library_size")
+sample_sums(ps) |> enframe("sample_id", "library_size")
 ```
 
 Convert abundances to long tables for ASVs and Genera.
@@ -93,7 +105,7 @@ g <- taxa_count(ps, lev="genus", zeros=T)[order(sample, -reads, taxa)]
 mat <- as.matrix(g)
 
 write_csv(asvs, "tables/asv_abundances.csv")
-write_csv(g, "tables/genus_abundances.csv")
+write_csv(g[reads > 0], "tables/genus_abundances.csv")
 asvs
 ```
 
@@ -103,7 +115,7 @@ library(ComplexHeatmap)
 hm <- Heatmap(
   log10(mat+0.5)[sort(rownames(mat)),],
   col=viridisLite::magma(256),
-  col_names_max_width = unit(12, "cm"),
+  column_names_max_height = unit(12, "cm"),
   name="log10(reads)",
   row_dend_side="right",
   row_names_side="left",
@@ -126,6 +138,6 @@ ord <- ordinate(ps, method="PCoA", distance="bray")
 ```
 
 ```{r, fig.width=6, fig.height=4}
-plot_ordination(ps, ord, label="sample_id", color="type")
+plot_ordination(ps, ord, label="id", color="type")
 ggsave("figures/pcoa.png", dpi=300, width=6, height=4)
 ```

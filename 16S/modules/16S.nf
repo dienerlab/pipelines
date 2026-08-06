@@ -1,7 +1,16 @@
 
+def safeInt(str) {
+    try {
+        return str.toInteger()
+    } catch (Exception _e) {
+        log.warn "Could not convert ${str} to integer, using default value."
+        return null
+    }
+}
+
 process find_files {
     cpus 1
-    memory "4 GB"
+    memory 512.MB
     time "10 m"
 
     input:
@@ -38,8 +47,8 @@ process find_files {
 }
 
 process quality_control {
-    cpus params.threads
-    memory "32 GB"
+    cpus 4
+    memory 4.GB
     time "8h"
 
     input:
@@ -58,7 +67,7 @@ process quality_control {
     library(miso)
     library(futile.logger)
 
-    PREFIX = "raw_dir"
+    PREFIX = "${raw_dir}"
 
     flog.appender(appender.file("qc.log"))
 
@@ -91,7 +100,7 @@ process quality_control {
         stop("Can't continue with missing files :(")
     }
 
-    qc <- quality_control(files, min_score = 20)
+    qc <- quality_control(files, min_score = ${params.min_score})
     saveRDS(qc, "qc.rds")
     ggsave("qualities.png", pl = qc[["quality_plot"]] + theme_minimal(),
            width = 8, height = 4, dpi = 300)
@@ -103,8 +112,8 @@ process quality_control {
 }
 
 process trim {
-    cpus params.threads
-    memory "16 GB"
+    cpus 6
+    memory 12.GB
     time "24h"
 
     input:
@@ -125,15 +134,16 @@ process trim {
     manifest <- fread("${manifest}")[, "id" := as.character(id)]
 
     if ("reverse" %in% names(manifest)) {
-        trunc <- c(${params.trunc_forward}, ${params.trunc_reverse})
+        trunc <- c(${params.forward_trunc}, ${params.reverse_trunc})
     } else {
-        trunc <- ${params.trunc_forward}
+        trunc <- ${params.forward_trunc}
     }
 
     procced <- preprocess(
         qc,
         trimLeft = ${params.trim_left},
         truncLen = trunc,
+        truncQ = ${params.min_quality},
         maxEE = ${params.maxEE},
         out_dir = "preprocessed",
         threads = ${task.cpus}
@@ -143,9 +153,9 @@ process trim {
 }
 
 process denoise {
-    cpus params.threads
-    memory "64 GB"
-    time "2d"
+    cpus 10
+    memory 32.GB
+    time "1d"
 
     input:
     tuple path(procced), path(artifact), path(log)
@@ -196,9 +206,9 @@ process denoise {
 }
 
 process tree {
-    cpus params.threads
-    memory "64 GB"
-    time "24h"
+    cpus 4
+    memory 8.GB
+    time "8h"
 
     input:
     tuple path(stats), path(denoised), path(ps), path(log), path(error_plots)
