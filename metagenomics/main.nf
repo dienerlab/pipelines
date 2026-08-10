@@ -17,8 +17,7 @@ params.read_length = 150
 params.threshold = 10
 params.contig_length = 500
 params.overlap = 0.8
-params.identity = 0.99
-params.threads = 12
+params.identity = 0.95
 params.method = "illumina"
 
 
@@ -438,7 +437,7 @@ process find_genes {
 }
 
 process cluster_proteins {
-    cpus params.threads/2
+    cpus 12
     memory "40GB"
     time "2h"
 
@@ -450,12 +449,15 @@ process cluster_proteins {
 
     script:
     """
-    mmseqs easy-linclust ${proteins} proteins tmp \
-        --cov-mode 0 -c ${params.overlap} \
-        --min-seq-id ${params.identity} \
-        --split-memory-limit 32G --threads ${task.cpus}
-    rm -rf proteins_all_seqs.fna tmp
-    mv proteins_rep_seq.fasta proteins.faa
+    trap "rm -rf all.faa" EXIT
+
+    cat ${proteins} > all.faa
+
+    diamond cluster -d all.faa -o proteins_cluster.tsv \
+        --id ${params.identity} --member-cover ${params.coverage} \
+        -M ${task.memory.toGiga}G -p ${task.cpus}
+
+    seqkit grep -f <(cut -f 1 proteins_cluster.tsv) all.faa > proteins.faa
     """
 }
 
@@ -492,24 +494,27 @@ process map_and_count {
     script:
     if (params.single_end && params.method == "illumina")
         """
+        trap "rm -rf ${id}_index" EXIT
+
         salmon index -p ${task.cpus} -t ${genes} -i ${id}_index || touch ${id}_index
         salmon quant --meta -p ${task.cpus} -l A -i ${id}_index -r ${reads} -o ${id} &&
             mv ${id}/quant.sf ${id}.sf || touch ${id}.sf
-        rm -rf ${id}_index
         """
     else if (!params.single_end && params.method == "illumina")
         """
+        trap "rm -rf ${id}_index" EXIT
+
         salmon index -p ${task.cpus} -t ${genes} -i ${id}_index || touch ${id}_index
         salmon quant --meta -p ${task.cpus} -l A -i ${id}_index -1 ${reads[0]} -2 ${reads[1]} -o ${id} &&
             mv ${id}/quant.sf ${id}.sf || touch ${id}.sf
-        rm -rf ${id}_index
         """
     else if (params.method == "nanopore" || params.method == "pacbio")
         """
+        trap "rm -rf ${id}.bam" EXIT
+
         minimap2 -ax map-ont -p 1.0 -N 100 -t ${task.cpus} ${genes} ${reads} | samtools view -bS > ${id}.bam
         salmon quant -t ${genes} -q --ont --meta-l U -a ${id}.bam -o ${id} -p ${task.cpus} &&
             mv ${id}_salmon/quant.sf ${id}.sf || touch ${id}.sf
-        rm ${id}.bam
         """
 }
 
