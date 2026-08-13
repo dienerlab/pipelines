@@ -25,7 +25,7 @@ some recent benchmarks:
 
 Based on those my criteria for a pipeline were:
 
-1. must include the newer deep learning binners, especially SemiBin2 and ComeBin
+1. must include the newer deep learning binners, especially SemiBin2 and ComeBin (seem to work well in general)
 2. must provide multi-sample binning and allow choosing small groups
 3. should include MIMAG evaluations (so completeness, contamination, rRNAs, tRNAs)
 4. should reuse mapping
@@ -35,7 +35,9 @@ Based on those my criteria for a pipeline were:
 8. scalable to 1000+ samples
 9. support for long reads
 
-The Korem paper showed that CheckM2 estimates are only correct for non-chimeric genomes. DasTool was shown to sometimes makes bins worse, especially the deep learning ones.
+!!! info
+
+    Some additional insights: The Coleman paper suggests that CheckM2 estimates are only correct for non-chimeric genomes. DasTool was shown to sometimes makes bins worse, especially the deep learning ones. The Kim paper suggests that multi-sample has diminishing returns that start with quite small sample groups (~10).
 
 Back in 2025 there was not a single pipeline that would implement more than 2 of those, so the
 idea was to make a new pipeline from scratch. But, I never got to that.
@@ -50,12 +52,24 @@ was published and [nf-core/mag](https://nf-co.re/mag/5.5.0) got a major update.
 | Tofu-MAAPO  | 1  | ✅ | ❌ | ❌ | 😐 | ❌ | ✅ | ❌ | ✅ | ❌ |
 | nf-core/mag | 3+ | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ | 😐 | ✅ |
 
+[Bus Factor](https://en.wikipedia.org/wiki/Bus_factor) was calculated as active contributors in the last 3 months with more than 10 lines of code.
+
 So both close. One thing that can be noticed that all the missing features are mostly post-binning (dereplication, annotations, bin refinement, GUNC). So that makes things easier.
 
 ## Pipeline testing
 
-I tested both of the pipelines with 10 samples (paired-end) from our "larger" bechmark data set (infant gut microbiome time series, 400+ samples).
+I tested both of the pipelines with 10 samples (paired-end) from our "larger" bechmark data set.
 
+Data is from infant gut microbiome time series, 400+ samples from [this paper](https://doi.org/10.1038/s41591-018-0216-2). I use this because:
+
+- fairly low depth (~10M reads per sample)
+- time series so can check samples from same individual
+- high amount of host reads (typical for infant microbiome)
+- some ground truth about common taxa (Bifidos, low Bacteroides)
+- increasing bacterial diversity across age
+
+Config had to be adapted for Tofu-MAAPO. For nf-core/mag I added some of our standard config but I suspect it does not overwrite
+the standard profile as aggressively as Tofu-MAAPO so I suspect the normal nextflow setup might have worked without adjustements.
 The configs can be found in the `configs/` directory in the repo.
 
 ### Cool things and issues
