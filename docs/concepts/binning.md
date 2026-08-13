@@ -75,7 +75,7 @@ The configs can be found in the `configs/` directory in the repo.
 <div class="annotate" markdown>
 
 - needed several adjustments to config
-- vamb want to run in exclusive mode which causes massive delays (4)
+- vamb want to run in exclusive mode which causes massive delays (1)
 - parts of it (MagScot) still rely on GTDB 207
 - databases need to be downloaded manually
 - docs are lacking
@@ -83,7 +83,7 @@ The configs can be found in the `configs/` directory in the repo.
 
 </div>
 
-4. They claim this is because of numpy taking up all threads but you can just limit this with
+1. They claim this is because of numpy taking up all threads but you can just limit this with
    `OMP_NUM_THREADS`. I never observed VAMB using more than the allocated CPUs. I disabled this
    in the config without any impact.
 
@@ -101,7 +101,7 @@ The configs can be found in the `configs/` directory in the repo.
 
 <div class="annotate" markdown>
 
-- some bugs with parameters being ignored or not working (5)
+- some bugs with parameters being ignored or not working (1)
 - somehwat slower because of the many binners and multi-sample binning
 - no GPU support
 - BUSCO could not be turned off and ran forever (24h+ for a *single* genome)
@@ -110,7 +110,7 @@ The configs can be found in the `configs/` directory in the repo.
 
 </div>
 
-5.  This is why BUSCO could not be turned off. Also had to download the GUNC DB manually as their
+1.  This is why BUSCO could not be turned off. Also had to download the GUNC DB manually as their
     parameter to do so was broken.
 
 The retry strategy for both pipelines can be sluggish if you have actual failures.
