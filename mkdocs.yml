@@ -23,6 +23,7 @@ nav:
       - strain-based: rep/strains.md
   - Concepts:
     - HPC batches: 'concepts/batching.md'
+    - Binning Pipelines: 'concepts/binning.md'
   - Tips & Gotchas:
     - Meta-analysis (simple): 'tips/meta-per-study/main.md'
     - Meta-analysis (complex): tips/meta-per-file/main.md
