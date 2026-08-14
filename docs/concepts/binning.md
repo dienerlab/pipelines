@@ -131,10 +131,25 @@ The retry strategy for both pipelines can be sluggish if you have actual failure
 
 ### Summary
 
-Both recovered around 50 dereplicated MAGs that were at least MQ with several NC MAGs. There
+Both recovered 43 dereplicated MAGs few MQ with most NC MAGs. There
 were only very few HQ MAGs by MIMAG criteria because the 23S gene could only be found in 5 MAGs (not
 surprising because the ITS is hard to assemble). Overall pretty good results for this low depth data
 set with a lot of host contamination.
+
+*Tofu-Maapo*
+
+
+```
+LQ MQ NC
+ 1  5 37
+```
+
+*nf-core/mag*:
+
+```
+MQ NC
+ 4 39
+```
 
 Overall I liked nf-core/mag a bit more. It covered more of our features though it was also
 a bit slower. However, since you only do this once this should be fine.
