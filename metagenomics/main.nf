@@ -220,6 +220,7 @@ process preprocess {
     cpus 3
     memory "4GB"
     time "30m"
+    tag { id }
 
     input:
     tuple val(id), path(reads)
@@ -261,6 +262,7 @@ process singleM {
     cpus 3
     memory 8.GB
     time 2.h
+    tag { id }
 
     input:
     tuple val(id), path(fastqs), path(json), path(html)
@@ -296,6 +298,7 @@ process lyrebird {
     cpus 3
     memory 8.GB
     time 4.h
+    tag { id }
 
     input:
     tuple val(id), path(fastqs), path(json), path(html)
@@ -410,6 +413,7 @@ process assemble {
     cpus 4
     memory 16.GB
     time 12.h
+    tag { id }
 
     input:
     tuple val(id), path(reads), path(json), path(report)
@@ -443,6 +447,7 @@ process find_genes {
     cpus 1
     memory "2GB"
     time "1h"
+    tag { id }
 
     input:
     tuple val(id), path(assembly)
@@ -509,6 +514,7 @@ process map_and_count {
     cpus 2
     memory "32 GB"
     time "4h"
+    tag { id }
 
     input:
     tuple val(id), path(reads), path(json), path(html), path(genes), path(proteins)
