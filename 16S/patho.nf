@@ -68,7 +68,8 @@ workflow {
 
 
     runID = channel.of(params.run)
-    manifest = download_raw_files(runID) | find_files | annotate_samples
+    download_raw_files(runID) | find_files | annotate_samples
+    manifest = annotate_samples.out.map{it -> tuple(it[1], it[2])}
     length_check(manifest)
     annotate_samples.out.map{it -> tuple(it[1], it[2])} | quality_control | trim | denoise | tables
     denoise.out | tree
