@@ -71,7 +71,7 @@ workflow {
     download_raw_files(runID) | find_files | annotate_samples
     manifest = annotate_samples.out.map{it -> tuple(it[0], it[1])}
     length_check(manifest)
-    annotate_samples.out.map{it -> tuple(it[1], it[2])} | quality_control | trim | denoise | tables
+    manifest | quality_control | trim | denoise | tables
     denoise.out | tree
 
     report(
