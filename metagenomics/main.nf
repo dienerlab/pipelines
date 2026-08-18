@@ -140,7 +140,7 @@ workflow {
     annotate(cluster_proteins.out)
 
     // Prepare sample sheets for mag
-    neighborhoods(summarizeProfiles)
+    neighborhoods(summarizeProfiles.out)
     sample_sheet(preprocess.out.collect{it -> it[1]}.combine(neighborhoods.out))
     assembly_sheet(assemble.out.collect{it -> it[1]}.combine(neighborhoods.out))
 
