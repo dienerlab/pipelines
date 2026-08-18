@@ -90,7 +90,7 @@ workflow {
         .mix(tables.out)
         .mix(tree.out)
         .mix(report.out.flatten())
-        .mix(download_raw_files.out.filter{it -> it.name ==~ "manifest_.+\.xml"}.flatten())
+        .mix(download_raw_files.out.filter{it -> it.name ==~ "manifest_.+\.xlsx"}.flatten())
         .flatten()
 
     if (params.upload) {
