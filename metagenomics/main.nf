@@ -135,6 +135,10 @@ workflow {
     cluster_counts(merge_counts.out, cluster_proteins.out)
     annotate(cluster_proteins.out)
 
+    // Prepare sample sheets for mag
+    sample_sheet(preprocess.out.collect{it -> it[1]})
+    assembly_sheet(assemble.out.collect{it -> it[1]})
+
     publish:
 
     preprocessed = preprocess.out
@@ -146,6 +150,7 @@ workflow {
     clusters = cluster_proteins.out
     counts = cluster_counts.out
     annotations = annotate.out
+    sheets = sample_sheet.out.mix(assembly_sheet.out)
 }
 
 output {
@@ -188,6 +193,11 @@ output {
     }
 
     annotations {
+        mode "copy"
+        overwrite true
+    }
+
+    sheets {
         mode "copy"
         overwrite true
     }
@@ -615,5 +625,82 @@ process annotate {
         --data_dir ${params.eggnog_refs} --scratch_dir \$EMTMP --temp_dir \$TMPDIR \
         --cpu ${task.cpus}
     rm -rf \$EMTMP
+    """
+}
+
+process sample_sheet {
+    cpus 1
+    memory "1GB"
+    time "1h"
+
+    input:
+    path(reads)
+
+    output:
+    path("samplesheet.csv")
+
+    script:
+    """
+    #!/usr/bin/env python
+
+    import pandas as pd
+    from pathlib import Path
+
+    reads = "${reads}".split()
+    forward = sorted(["preprocessed/" + r for r in reads if "_R1" in reads])
+    reverse = sorted(["preprocessed/" + r for r in reads if "_R2" in reads])
+    ids = [r.split("_filtered_R")[0] for r in forward]
+    if len(reverse) == len(forward):
+        df = pd.DataFrame({
+            "sample": ids,
+            "group": list(range(len(ids))),
+            "short_reads_1": forward,
+            "short_reads_2": reverse,
+            "short_reads_platform": "${params.method}".upper()
+        })
+    else:
+        df = pd.DataFrame({
+            "sample": ids,
+            "group": list(range(len(ids)))
+        })
+
+        if "${params.method}" == "illumina":
+            df["short_reads_1"] = forward
+            df["short_reads_platform"] = "${params.method}".upper()
+        else:
+            df["long_reads"] = forward
+            df["long_reads_platform"] = "${params.method}" == "nanopore" ? "OXFORD_NANOPORE_HQ" : "PACBIO_HFI"
+
+    df.to_csv("samplesheet.csv", index=False)
+    """
+}
+
+process assembly_sheet {
+    cpus 1
+    memory "1GB"
+    time "1h"
+
+    input:
+    path(assemblies)
+
+    output:
+    path("assembly_sheet.csv")
+
+    script:
+    """
+    #!/usr/bin/env python
+
+    import pandas as pd
+    from pathlib import Path
+
+    assemblies = sorted("${assemblies}".split())
+    ids = ["assemblies/" + a.split(".contigs")[0] for a in assemblies]
+    df = pd.DataFrame({
+        "id": ids,
+        "group": range(len(ids)),
+        "assembler": ["megahit" if "${params.method}" == "illumina" else "metaMDBG"],
+        "fasta": assemblies
+    })
+    df.to_csv("assembly_sheet.csv", index=False)
     """
 }
