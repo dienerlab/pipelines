@@ -327,12 +327,18 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	}
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
+	manifest, err := filepath.Glob("manifest_*.xlsx")
+	if err != nil {
+		log.Fatalf("Could not find manifest file in %s.", folderDate)
+	}
+
 	// Collect output files
 	var files []*discordgo.File
 	paths := []struct{ name, path string }{
 		{"amplicon_types.png", filepath.Join(folderDate, "figures", "amplicon_types.png")},
 		{"genus.png", filepath.Join(folderDate, "figures", "genus_top12.png")},
 		{"read_stats.csv", filepath.Join(folderDate, "tables", "read_stats.csv")},
+		{manifest[0], filepath.Join(folderDate, manifest[0])},
 	}
 	for _, p := range paths {
 		if f, err := os.Open(p.path); err == nil {
@@ -343,7 +349,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		}
 	}
 
-	_, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+	_, err = s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{{
 			Title: "🚀 Patho Pipeline Finished",
 			Description: fmt.Sprintf(
