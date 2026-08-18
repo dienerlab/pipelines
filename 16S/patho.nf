@@ -69,7 +69,7 @@ workflow {
 
     runID = channel.of(params.run)
     download_raw_files(runID) | find_files | annotate_samples
-    manifest = annotate_samples.out.map{it -> tuple(it[1], it[2])}
+    manifest = annotate_samples.out.map{it -> tuple(it[0], it[1])}
     length_check(manifest)
     annotate_samples.out.map{it -> tuple(it[1], it[2])} | quality_control | trim | denoise | tables
     denoise.out | tree
@@ -91,7 +91,7 @@ workflow {
         .mix(tables.out)
         .mix(tree.out)
         .mix(report.out.flatten())
-        .mix(annotate_samples.out.map{it -> it[3]}.flatten())
+        .mix(annotate_samples.out.map{it -> it[2]}.flatten())
         .flatten()
 
     if (params.upload) {
