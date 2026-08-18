@@ -20,6 +20,8 @@ params.overlap = 0.8
 params.identity = 0.97
 params.method = "illumina"
 
+params.assemblyPreset = "meta-sensitive"
+
 params.neighbors = 8
 params.metric = "braycurtis"
 params.neighborDomain = "microbial"
@@ -419,12 +421,14 @@ process assemble {
     if (params.single_end && params.method == "illumina")
         """
         megahit -r ${reads} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
+                --preset ${params.assemblyPreset} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
     else if (!params.single_end && params.method == "illumina")
         """
         megahit -1 ${reads[0]} -2 ${reads[1]} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
+                --preset ${params.assemblyPreset} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
