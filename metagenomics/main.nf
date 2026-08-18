@@ -155,6 +155,7 @@ workflow {
     counts = cluster_counts.out
     annotations = annotate.out
     sheets = sample_sheet.out.mix(assembly_sheet.out)
+    pf = mergePF.out
 }
 
 output {
@@ -202,6 +203,11 @@ output {
     }
 
     sheets {
+        mode "copy"
+        overwrite true
+    }
+    
+    pf {
         mode "copy"
         overwrite true
     }
