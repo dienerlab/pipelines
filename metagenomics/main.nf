@@ -10,15 +10,19 @@ params.metapackage = "${params.refs}/GlobDB_r232.metapackage_v4.smpkg"
 params.viralpackage = "${params.refs}/lyrebird_v0.3.1_phrog_v4.1_metapackage_20250720.smpkg.zb"
 
 params.single_end = false
-params.trim_front = 5
+params.trim_front = 3
 params.min_length = 50
 params.quality_threshold = 20
 params.read_length = 150
 params.threshold = 10
-params.contig_length = 500
+params.contig_length = 1000
 params.overlap = 0.8
-params.identity = 0.95
+params.identity = 0.97
 params.method = "illumina"
+
+params.neighbors = 8
+params.metric = "braycurtis"
+params.neighborDomain = "microbial"
 
 
 def helpMessage() {
@@ -634,7 +638,7 @@ process sample_sheet {
     time "1h"
 
     input:
-    path(reads)
+    tuple path(reads), path(neighbors)
 
     output:
     path("samplesheet.csv")
@@ -653,7 +657,6 @@ process sample_sheet {
     if len(reverse) == len(forward):
         df = pd.DataFrame({
             "sample": ids,
-            "group": list(range(len(ids))),
             "short_reads_1": forward,
             "short_reads_2": reverse,
             "short_reads_platform": "${params.method}".upper()
@@ -661,7 +664,6 @@ process sample_sheet {
     else:
         df = pd.DataFrame({
             "sample": ids,
-            "group": list(range(len(ids)))
         })
 
         if "${params.method}" == "illumina":
@@ -670,6 +672,9 @@ process sample_sheet {
         else:
             df["long_reads"] = forward
             df["long_reads_platform"] = "${params.method}" == "nanopore" ? "OXFORD_NANOPORE_HQ" : "PACBIO_HFI"
+
+    neighbors = pd.read_csv("${neighbors}")
+    df = df.merge(neighbors, on="sample", how="inner")
 
     df.to_csv("samplesheet.csv", index=False)
     """
@@ -681,7 +686,7 @@ process assembly_sheet {
     time "1h"
 
     input:
-    path(assemblies)
+    tuple path(assemblies), path(neighbors)
 
     output:
     path("assembly_sheet.csv")
@@ -701,6 +706,62 @@ process assembly_sheet {
         "assembler": ["megahit" if "${params.method}" == "illumina" else "metaMDBG"],
         "fasta": assemblies
     })
+
+    neighbors = pd.read_csv("${neighbors}")
+    df = df.merge(neighbors, left_on="id", right_on="sample", how="inner")
+
     df.to_csv("assembly_sheet.csv", index=False)
+    """
+}
+
+process neighborhoods {
+    cpus 1
+    memory "8GB"
+    time "2h"
+
+    input:
+    path(abundances)
+
+    output:
+    path("${params.neighborDomain}_neighborhood.csv")
+
+    script:
+    """
+    #!/usr/bin/env python
+
+    import pandas as pd
+    from pathlib import Path
+    from sklearn.neighbors import KDTree
+
+    files = "${abundances}".split()
+    domains = {s.split("_")[0]: s for s in files}
+    abundances = domains.get("${params.neighborDomain}", None)
+    if abundances is None:
+        raise ValueError(f"Domain ${params.neighborDomain} not found in abundances: {list(domains.keys())}")
+
+    groups = list()
+    df = pd.read_csv(abundances, sep="\\t").pivot_table(
+        index="sample", columns="taxon", values="relative_abundance", fill_value=0)
+    tree = KDTree(df.values, metric="${params.metric}", leaf_size=10)
+    samples = set(df.index)
+    g = 0
+    while len(samples) > ${params.neighbors}:
+        sample = samples.pop()
+        dist, ind = tree.query([df.loc[sample].values], k=${params.neighbors})
+        neighbors = df.index[ind[0]].tolist()
+        groups.append(pd.DataFrame({
+            "sample": neighbors,
+            "breadth": dist.var(),
+            "group": g
+        }))
+        g += 1
+        samples -= set(neighbors)
+    groups.append(pd.DataFrame({
+        "sample": list(samples),
+        "breadth": float("nan"),
+        "group": g
+    }))
+    groups = pd.concat(groups)
+    groups.to_csv("${params.neighborDomain}_neighborhood.csv", index=False)
     """
 }
