@@ -140,8 +140,9 @@ workflow {
     annotate(cluster_proteins.out)
 
     // Prepare sample sheets for mag
-    sample_sheet(preprocess.out.collect{it -> it[1]})
-    assembly_sheet(assemble.out.collect{it -> it[1]})
+    neighborhoods(summarizeProfiles)
+    sample_sheet(preprocess.out.collect{it -> it[1]}.combine(neighborhoods.out))
+    assembly_sheet(assemble.out.collect{it -> it[1]}.combine(neighborhoods.out))
 
     publish:
 
@@ -206,7 +207,7 @@ output {
         mode "copy"
         overwrite true
     }
-    
+
     pf {
         mode "copy"
         overwrite true
