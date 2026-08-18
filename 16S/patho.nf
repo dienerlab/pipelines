@@ -70,7 +70,7 @@ workflow {
     runID = channel.of(params.run)
     manifest = download_raw_files(runID) | find_files | annotate_samples
     length_check(manifest)
-    manifest | quality_control | trim | denoise | tables
+    annotate_samples.out.map{it -> tuple(it[1], it[2])} | quality_control | trim | denoise | tables
     denoise.out | tree
 
     report(
@@ -90,7 +90,7 @@ workflow {
         .mix(tables.out)
         .mix(tree.out)
         .mix(report.out.flatten())
-        .mix(download_raw_files.out.filter{it -> it.name ==~ "manifest_.+\.xlsx"}.flatten())
+        .mix(annotate_samples.out.map{it -> it[3]}.flatten())
         .flatten()
 
     if (params.upload) {
@@ -158,7 +158,7 @@ process annotate_samples {
     tuple path(manifest), path(raw_dir)
 
     output:
-    tuple path("manifest_annotated.csv"), path(raw_dir)
+    tuple path("manifest_annotated.csv"), path(raw_dir), path("manifest_*.xlsx")
 
     script:
     """
@@ -167,10 +167,12 @@ process annotate_samples {
     library(tidyverse)
 
     files <- read_csv("${manifest}") |> mutate(Barcode = as.character(id)) |> select(!id)
-    man <- readxl::read_excel(Sys.glob("raw/*.xlsx")[1], skip=9) |>
+    mpath <- Sys.glob("raw/manifest_*.xlsx")[1]
+    man <- readxl::read_excel(mpath, skip=9) |>
         mutate(Barcode = str_split_i(Barcode, " ", 2), id = `Externe ID`) |>
         drop_na(id) |>
         mutate(type = c("sample", "control")[str_detect(tolower(id), "^pos|^neg") + 1])
+    file.copy(mpath, basename(mpath), overwrite=TRUE)
     merged <- man |> inner_join(files, by="Barcode")
     write_csv(merged, "manifest_annotated.csv")
     """
