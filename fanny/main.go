@@ -327,7 +327,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	}
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
-	manifest, err := filepath.Glob("manifest_*.xlsx")
+	manifest, err := filepath.Glob(filepath.Join(folderDate, "manifest_*.xlsx"))
 	if err != nil {
 		log.Fatalf("Could not find manifest file in %s.", folderDate)
 	}
@@ -338,7 +338,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		{"amplicon_types.png", filepath.Join(folderDate, "figures", "amplicon_types.png")},
 		{"genus.png", filepath.Join(folderDate, "figures", "genus_top12.png")},
 		{"read_stats.csv", filepath.Join(folderDate, "tables", "read_stats.csv")},
-		{manifest[0], filepath.Join(folderDate, manifest[0])},
+		{filepath.Base(manifest[0]), manifest[0]},
 	}
 	for _, p := range paths {
 		if f, err := os.Open(p.path); err == nil {
