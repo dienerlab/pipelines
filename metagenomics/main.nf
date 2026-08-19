@@ -20,7 +20,7 @@ params.overlap = 0.8
 params.identity = 0.97
 params.method = "illumina"
 
-params.assemblyPreset = "meta-sensitive"
+params.assemblyPreset = "default"
 
 params.neighbors = 8
 params.metric = "braycurtis"
@@ -422,17 +422,18 @@ process assemble {
     tuple val(id), path("contigs/${id}.contigs.fa")
 
     script:
+    def args = params.assemblyPreset == "default" ? " " : " --preset ${params.assemblyPreset}"
     if (params.single_end && params.method == "illumina")
         """
         megahit -r ${reads} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
-                --preset ${params.assemblyPreset} \
+                ${args} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
     else if (!params.single_end && params.method == "illumina")
         """
         megahit -1 ${reads[0]} -2 ${reads[1]} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
-                --preset ${params.assemblyPreset} \
+                ${args} \
                 --min-contig-len ${params.contig_length} --out-prefix ${id}
         sed -i -e "s/^>/>${id}_/" contigs/${id}.contigs.fa
         """
