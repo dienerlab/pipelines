@@ -143,8 +143,8 @@ workflow {
 
     // Prepare sample sheets for mag
     neighborhoods(summarizeProfiles.out)
-    sample_sheet(preprocess.out.collect{it -> it[1]}.combine(neighborhoods.out))
-    assembly_sheet(assemble.out.collect{it -> it[1]}.combine(neighborhoods.out))
+    sample_sheet(preprocess.out, neighborhoods.out)
+    assembly_sheet(assemble.out, neighborhoods.out)
 
     publish:
 
@@ -656,7 +656,8 @@ process sample_sheet {
     time "1h"
 
     input:
-    tuple path(reads), path(neighbors)
+    path(reads)
+    path(neighbors)
 
     output:
     path("samplesheet.csv")
@@ -704,7 +705,8 @@ process assembly_sheet {
     time "1h"
 
     input:
-    tuple path(assemblies), path(neighbors)
+    path(assemblies)
+    path(neighbors)
 
     output:
     path("assembly_sheet.csv")
