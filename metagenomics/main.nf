@@ -143,8 +143,8 @@ workflow {
 
     // Prepare sample sheets for mag
     neighborhoods(summarizeProfiles.out)
-    sample_sheet(preprocess.out, neighborhoods.out)
-    assembly_sheet(assemble.out, neighborhoods.out)
+    sample_sheet(preprocess.out.collect{it -> it[1]}, neighborhoods.out)
+    assembly_sheet(assemble.out.collect{it -> it[1]}, neighborhoods.out)
 
     publish:
 
