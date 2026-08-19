@@ -751,6 +751,7 @@ process neighborhoods {
 
     import pandas as pd
     from pathlib import Path
+    from sklearn.metrics import pairwise_distances
     from sklearn.neighbors import BallTree
 
     files = "${abundances}".split()
@@ -778,14 +779,15 @@ process neighborhoods {
 
         groups.append(pd.DataFrame({
             "sample": neighbors,
-            "breadth": dist.mean(),
+            "distance_${params.metric}": dist,
             "group": g
         }))
         g += 1
         samples -= set(neighbors)
+    dist = pairwise_distances(mat.loc[list(samples)[0]].values, mat.loc[list(samples)].values, metric="${params.metric}")
     groups.append(pd.DataFrame({
         "sample": list(samples),
-        "breadth": float("nan"),
+        "distance_${params.metric}": dist,
         "group": g
     }))
     print(f"group: {g} [final] neighbors: {",".join(neighbors)}")
