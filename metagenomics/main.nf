@@ -422,7 +422,7 @@ process assemble {
     tuple val(id), path("contigs/${id}.contigs.fa")
 
     script:
-    def args = params.assemblyPreset == "default" ? " " : " --preset ${params.assemblyPreset}"
+    def args = params.assemblyPreset == "default" ? "" : " --preset ${params.assemblyPreset}"
     if (params.single_end && params.method == "illumina")
         """
         megahit -r ${reads} -o contigs -t ${task.cpus} -m ${task.memory.toBytes()} \
