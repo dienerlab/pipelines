@@ -630,7 +630,7 @@ process cluster_counts {
 }
 
 process annotate {
-    cpus params.threads
+    cpus 12
     memory "64GB"
     time "2d"
 
