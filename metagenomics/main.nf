@@ -748,7 +748,7 @@ process neighborhoods {
 
     import pandas as pd
     from pathlib import Path
-    from sklearn.neighbors import KDTree
+    from sklearn.neighbors import BallTree
 
     files = "${abundances}".split()
     domains = {s.split("_")[0]: s for s in files}
@@ -757,18 +757,25 @@ process neighborhoods {
         raise ValueError(f"Domain ${params.neighborDomain} not found in abundances: {list(domains.keys())}")
 
     groups = list()
-    df = pd.read_csv(abundances, sep="\\t").pivot_table(
-        index="sample", columns="taxon", values="relative_abundance", fill_value=0)
-    tree = KDTree(df.values, metric="${params.metric}", leaf_size=10)
-    samples = set(df.index)
+    df = pd.read_csv(abundances, sep="\\t")
+    df = df[df["level"] == "species"]
+    mat = df.pivot_table(
+        index="sample", columns="taxonomy",
+        values="relative_abundance", fill_value=0
+    )
+    tree = BallTree(mat.values, metric="${params.metric}", leaf_size=10)
+    samples = set(mat.index)
     g = 0
     while len(samples) > ${params.neighbors}:
         sample = samples.pop()
-        dist, ind = tree.query([df.loc[sample].values], k=${params.neighbors})
-        neighbors = df.index[ind[0]].tolist()
+        dist, ind = tree.query([mat.loc[sample].values], k=${params.neighbors})
+        neighbors = mat.index[ind[0]].tolist()
+
+        print(f"group: {g} distances: {dist.mean()} neighbors: {",".join(neighbors)}")
+
         groups.append(pd.DataFrame({
             "sample": neighbors,
-            "breadth": dist.var(),
+            "breadth": dist.mean(),
             "group": g
         }))
         g += 1
@@ -778,6 +785,7 @@ process neighborhoods {
         "breadth": float("nan"),
         "group": g
     }))
+    print(f"group: {g} [final] neighbors: {",".join(neighbors)}")
     groups = pd.concat(groups)
     groups.to_csv("${params.neighborDomain}_neighborhood.csv", index=False)
     """
