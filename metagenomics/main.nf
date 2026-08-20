@@ -784,7 +784,11 @@ process neighborhoods {
         }))
         g += 1
         samples -= set(neighbors)
-    dist = pairwise_distances(mat.loc[list(samples)[0]].values, mat.loc[list(samples)].values, metric="${params.metric}")
+    dist = pairwise_distances(
+        [mat.loc[list(samples)[0]].values],
+        mat.loc[list(samples)].values,
+        metric="${params.metric}"
+    )
     groups.append(pd.DataFrame({
         "sample": list(samples),
         "distance_${params.metric}": dist[0],
