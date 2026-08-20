@@ -779,7 +779,7 @@ process neighborhoods {
 
         groups.append(pd.DataFrame({
             "sample": neighbors,
-            "distance_${params.metric}": dist,
+            "distance_${params.metric}": dist[0],
             "group": g
         }))
         g += 1
@@ -787,7 +787,7 @@ process neighborhoods {
     dist = pairwise_distances(mat.loc[list(samples)[0]].values, mat.loc[list(samples)].values, metric="${params.metric}")
     groups.append(pd.DataFrame({
         "sample": list(samples),
-        "distance_${params.metric}": dist,
+        "distance_${params.metric}": dist[0],
         "group": g
     }))
     print(f"group: {g} [final] neighbors: {",".join(neighbors)}")
