@@ -767,10 +767,10 @@ process neighborhoods {
         index="sample", columns="taxonomy",
         values="relative_abundance", fill_value=0
     )
-    tree = BallTree(mat.values, metric="${params.metric}", leaf_size=10)
     samples = set(mat.index)
     g = 0
     while len(samples) > ${params.neighbors}:
+        tree = BallTree(mat.loc[list(samples)].values, metric="${params.metric}", leaf_size=10)
         sample = samples.pop()
         dist, ind = tree.query([mat.loc[sample].values], k=${params.neighbors})
         neighbors = mat.index[ind[0]].tolist()
