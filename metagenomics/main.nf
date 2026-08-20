@@ -690,7 +690,7 @@ process sample_sheet {
             df["short_reads_platform"] = "${params.method}".upper()
         else:
             df["long_reads"] = forward
-            df["long_reads_platform"] = "${params.method}" == "nanopore" ? "OXFORD_NANOPORE_HQ" : "PACBIO_HFI"
+            df["long_reads_platform"] = "OXFORD_NANOPORE_HQ" if "${params.method}" == "nanopore" else "PACBIO_HFI"
 
     neighbors = pd.read_csv("${neighbors}")
     df = df.merge(neighbors, on="sample", how="inner")
@@ -723,7 +723,7 @@ process assembly_sheet {
     df = pd.DataFrame({
         "id": ids,
         "group": range(len(ids)),
-        "assembler": ["megahit" if "${params.method}" == "illumina" else "metaMDBG"],
+        "assembler": "megahit" if "${params.method}" == "illumina" else "metaMDBG",
         "fasta": assemblies
     })
 
