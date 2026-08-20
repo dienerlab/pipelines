@@ -486,7 +486,7 @@ process cluster_proteins {
 
     diamond cluster -d all.faa -o proteins_cluster.tsv \
         --id ${params.identity} --member-cover ${params.coverage} \
-        -M ${task.memory.toGiga}G -p ${task.cpus}
+        -M ${task.memory.toGiga()}G -p ${task.cpus}
 
     seqkit grep -f <(cut -f 1 proteins_cluster.tsv) all.faa > proteins.faa
     """
