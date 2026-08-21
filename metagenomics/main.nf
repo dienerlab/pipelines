@@ -694,7 +694,7 @@ process sample_sheet {
 
     neighbors = pd.read_csv("${neighbors}")
     neighbors["sample"] = neighbors["sample"].str.split("filtered_R").str[0]
-    df = df.merge(neighbors, on="sample", how="inner")
+    df = df.merge(neighbors, on="sample", how="inner").sort_values(by=["group", "dist"])
 
     df.to_csv("samplesheet.csv", index=False)
     """
@@ -727,7 +727,7 @@ process assembly_sheet {
     })
 
     neighbors = pd.read_csv("${neighbors}")
-    neighbors["sample"] = neighbors["sample"].str.split("filtered_R").str[0]
+    neighbors["sample"] = neighbors["sample"].str.split("_filtered_R").str[0]
     df = df.merge(neighbors, left_on="id", right_on="sample", how="inner")
 
     df.to_csv("assemblysheet.csv", index=False)
