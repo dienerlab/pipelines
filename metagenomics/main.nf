@@ -693,6 +693,7 @@ process sample_sheet {
             df["long_reads_platform"] = "OXFORD_NANOPORE_HQ" if "${params.method}" == "nanopore" else "PACBIO_HFI"
 
     neighbors = pd.read_csv("${neighbors}")
+    neighbors["sample"] = neighbors["sample"].str.split("filtered_R").str[0]
     df = df.merge(neighbors, on="sample", how="inner")
 
     df.to_csv("samplesheet.csv", index=False)
@@ -728,6 +729,7 @@ process assembly_sheet {
     })
 
     neighbors = pd.read_csv("${neighbors}")
+    neighbors["sample"] = neighbors["sample"].str.split("filtered_R").str[0]
     df = df.merge(neighbors, left_on="id", right_on="sample", how="inner")
 
     df.to_csv("assembly_sheet.csv", index=False)
