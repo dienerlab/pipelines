@@ -717,7 +717,6 @@ process assembly_sheet {
     #!/usr/bin/env python
 
     import pandas as pd
-    from pathlib
 
     assemblies = sorted("${assemblies}".split())
     ids = [a.split(".contigs")[0] for a in assemblies]
