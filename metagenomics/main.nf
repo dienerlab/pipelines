@@ -832,6 +832,7 @@ process neighborhoods {
                         "dist": mean_dist,
                     }
                 )
+                print(f"Assigned sample {samples[idx]} to group {group_id} with mean distance {mean_dist:.4f}")
 
             group_id += 1
 
