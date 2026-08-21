@@ -695,7 +695,7 @@ process sample_sheet {
     neighbors = pd.read_csv("${neighbors}")
     neighbors["sample"] = neighbors["sample"].str.split("filtered_R").str[0]
     df = df.merge(neighbors, on="sample", how="inner").sort_values(by=["group", "dist"])
-    assert len(df) == len(neighborhood), "Some samples are missing from the read files file!"
+    assert len(df) == len(neighbors), "Some samples are missing from the read files!"
 
     df.to_csv("samplesheet.csv", index=False)
     """
@@ -724,12 +724,12 @@ process assembly_sheet {
     df = pd.DataFrame({
         "id": ids,
         "assembler": "megahit" if "${params.method}" == "illumina" else "metaMDBG",
-        "fasta": ["assemblies/" + a for a in assemblies]
+        "fasta": ["assemblies/contigs/" + a for a in assemblies]
     })
 
     neighbors = pd.read_csv("${neighbors}")
     neighbors["sample"] = neighbors["sample"].str.split("_filtered_R").str[0]
-    df = df.merge(neighbors, left_on="id", right_on="sample", how="inner")
+    df = df.merge(neighbors, left_on="id", right_on="sample", how="inner").sort_values(by=["group", "dist"])
     assert len(df) == len(neighbors), "Some samples are missing from the assemblies!"
 
     df.to_csv("assemblysheet.csv", index=False)
