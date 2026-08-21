@@ -667,12 +667,12 @@ process sample_sheet {
     #!/usr/bin/env python
 
     import pandas as pd
-    from pathlib import Path
+    from os.path import basename
 
     reads = "${reads}".split()
-    forward = sorted(["preprocessed/" + r for r in reads if "_R1" in reads])
-    reverse = sorted(["preprocessed/" + r for r in reads if "_R2" in reads])
-    ids = [r.split("_filtered_R")[0] for r in forward]
+    forward = sorted(["preprocessed/" + r for r in reads if "_R1" in r])
+    reverse = sorted(["preprocessed/" + r for r in reads if "_R2" in r])
+    ids = [basename(r).split("_filtered_R")[0] for r in forward]
     if len(reverse) == len(forward):
         df = pd.DataFrame({
             "sample": ids,
@@ -710,29 +710,28 @@ process assembly_sheet {
     path(neighbors)
 
     output:
-    path("assembly_sheet.csv")
+    path("assemblysheet.csv")
 
     script:
     """
     #!/usr/bin/env python
 
     import pandas as pd
-    from pathlib import Path
+    from pathlib
 
     assemblies = sorted("${assemblies}".split())
-    ids = ["assemblies/" + a.split(".contigs")[0] for a in assemblies]
+    ids = [a.split(".contigs")[0] for a in assemblies]
     df = pd.DataFrame({
         "id": ids,
-        "group": range(len(ids)),
         "assembler": "megahit" if "${params.method}" == "illumina" else "metaMDBG",
-        "fasta": assemblies
+        "fasta": ["assemblies/" + a for a in assemblies]
     })
 
     neighbors = pd.read_csv("${neighbors}")
     neighbors["sample"] = neighbors["sample"].str.split("filtered_R").str[0]
     df = df.merge(neighbors, left_on="id", right_on="sample", how="inner")
 
-    df.to_csv("assembly_sheet.csv", index=False)
+    df.to_csv("assemblysheet.csv", index=False)
     """
 }
 
