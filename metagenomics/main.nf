@@ -695,6 +695,7 @@ process sample_sheet {
     neighbors = pd.read_csv("${neighbors}")
     neighbors["sample"] = neighbors["sample"].str.split("filtered_R").str[0]
     df = df.merge(neighbors, on="sample", how="inner").sort_values(by=["group", "dist"])
+    assert len(df) == len(forward), "Some samples are missing from the neighborhood file!"
 
     df.to_csv("samplesheet.csv", index=False)
     """
@@ -729,6 +730,7 @@ process assembly_sheet {
     neighbors = pd.read_csv("${neighbors}")
     neighbors["sample"] = neighbors["sample"].str.split("_filtered_R").str[0]
     df = df.merge(neighbors, left_on="id", right_on="sample", how="inner")
+    assert len(df) == len(assemblies), "Some assemblies are missing from the neighborhood file!"
 
     df.to_csv("assemblysheet.csv", index=False)
     """
