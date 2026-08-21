@@ -749,10 +749,9 @@ process neighborhoods {
     """
     #!/usr/bin/env python
 
+    import numpy as np
     import pandas as pd
-    from pathlib import Path
-    from sklearn.metrics import pairwise_distances
-    from sklearn.neighbors import BallTree
+    from scipy.spatial.distance import pdist, squareform
 
     files = "${abundances}".split()
     domains = {s.split("_")[0]: s for s in files}
@@ -760,42 +759,109 @@ process neighborhoods {
     if abundances is None:
         raise ValueError(f"Domain ${params.neighborDomain} not found in abundances: {list(domains.keys())}")
 
-    groups = list()
     df = pd.read_csv(abundances, sep="\\t")
     df = df[df["level"] == "species"]
     mat = df.pivot_table(
         index="sample", columns="taxonomy",
         values="relative_abundance", fill_value=0
     )
-    samples = set(mat.index)
-    g = 0
-    while len(samples) > ${params.neighbors}:
-        tree = BallTree(mat.loc[list(samples)].values, metric="${params.metric}", leaf_size=10)
-        sample = samples.pop()
-        dist, ind = tree.query([mat.loc[sample].values], k=${params.neighbors})
-        neighbors = mat.index[ind[0]].tolist()
 
-        print(f"group: {g} distances: {dist.mean()} neighbors: {",".join(neighbors)}")
+    def group_samples_fixed_size(df, k, metric="braycurtis"):
+        '''Groups a pandas DataFrame of samples into clusters of fixed size k
 
-        groups.append(pd.DataFrame({
-            "sample": neighbors,
-            "distance_${params.metric}": dist[0],
-            "group": g
-        }))
-        g += 1
-        samples -= set(neighbors)
-    dist = pairwise_distances(
-        [mat.loc[list(samples)[0]].values],
-        mat.loc[list(samples)].values,
-        metric="${params.metric}"
-    )
-    groups.append(pd.DataFrame({
-        "sample": list(samples),
-        "distance_${params.metric}": dist[0],
-        "group": g
-    }))
-    print(f"group: {g} [final] neighbors: {",".join(neighbors)}")
-    groups = pd.concat(groups)
-    groups.to_csv("${params.neighborDomain}_neighborhood.csv", index=False)
+        minimizing the pairwise distance within each group.
+
+        Parameters:
+        - df: pd.DataFrame with samples as index and relative abundances as columns.
+        - k: int, desired size of each group.
+        - metric: str or callable, distance metric to pass to scipy.spatial.distance.pdist
+                (e.g., 'braycurtis', 'euclidean', 'cosine', 'jensenshannon').
+
+        Returns:
+        - pd.DataFrame with columns ['sample', 'group', 'dist']
+        '''
+        # 1. Compute pairwise distance matrix using the specified metric
+        dist_array = pdist(df.values, metric=metric)
+        dist_matrix = squareform(dist_array)
+
+        samples = df.index.tolist()
+        n_samples = len(samples)
+
+        unassigned = set(range(n_samples))
+        group_records = []
+        group_id = 0
+
+        # 2. Greedy allocation loop
+        while len(unassigned) >= k:
+            unassigned_list = list(unassigned)
+
+            # Find the pair of unassigned samples with the minimum distance to seed the group
+            sub_dist = dist_matrix[np.ix_(unassigned_list, unassigned_list)]
+            np.fill_diagonal(sub_dist, np.inf)
+            min_idx = np.unravel_index(np.argmin(sub_dist), sub_dist.shape)
+
+            seed1 = unassigned_list[min_idx[0]]
+            seed2 = unassigned_list[min_idx[1]]
+
+            current_group = [seed1, seed2]
+            unassigned.remove(seed1)
+            unassigned.remove(seed2)
+
+            # Greedily add the closest remaining samples until group reaches size k
+            while len(current_group) < k and unassigned:
+                unassigned_list = list(unassigned)
+                mean_distances = np.mean(
+                    dist_matrix[unassigned_list][:, current_group], axis=1
+                )
+                closest_idx = unassigned_list[np.argmin(mean_distances)]
+                current_group.append(closest_idx)
+                unassigned.remove(closest_idx)
+
+            # Calculate mean distance for each sample to all *other* members of its group
+            for idx in current_group:
+                others = [o for o in current_group if o != idx]
+                if others:
+                    mean_dist = np.mean(dist_matrix[idx, others])
+                else:
+                    mean_dist = 0.0  # Case where k=1
+
+                group_records.append(
+                    {
+                        "sample": samples[idx],
+                        "group": group_id,
+                        "dist": mean_dist,
+                    }
+                )
+
+            group_id += 1
+
+        # 3. Handle leftover samples if total samples is not a multiple of k
+        if unassigned:
+            unassigned_list = list(unassigned)
+            for idx in unassigned_list:
+                # If the final group has other members, compute mean distance to them
+                others = [o for o in unassigned_list if o != idx]
+                if others:
+                    mean_dist = np.mean(dist_matrix[idx, others])
+                if group_members:
+                    mean_dist = np.mean(dist_matrix[idx, group_members])
+                else:
+                    mean_dist = 0.0
+
+                group_records.append(
+                    {
+                        "sample": samples[idx],
+                        "group": group_id,
+                        "dist": mean_dist,
+                    }
+                )
+
+        # Convert to DataFrame and sort to match original index order
+        result_df = pd.DataFrame(group_records)
+
+        return result_df
+
+    res = group_samples_fixed_size(mat, k=${params.neighbors}, metric='${params.metric}')
+    res.to_csv("${params.neighborDomain}_neighborhood.csv", index=False)
     """
 }
