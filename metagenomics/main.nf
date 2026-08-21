@@ -693,7 +693,7 @@ process sample_sheet {
             df["long_reads_platform"] = "OXFORD_NANOPORE_HQ" if "${params.method}" == "nanopore" else "PACBIO_HFI"
 
     neighbors = pd.read_csv("${neighbors}")
-    neighbors["sample"] = neighbors["sample"].str.split("filtered_R").str[0]
+    neighbors["sample"] = neighbors["sample"].str.split("_filtered_R").str[0]
     df = df.merge(neighbors, on="sample", how="inner").sort_values(by=["group", "dist"])
     assert len(df) == len(neighbors), "Some samples are missing from the read files!"
 
