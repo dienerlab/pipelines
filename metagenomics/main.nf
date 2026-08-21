@@ -844,8 +844,6 @@ process neighborhoods {
                 others = [o for o in unassigned_list if o != idx]
                 if others:
                     mean_dist = np.mean(dist_matrix[idx, others])
-                if group_members:
-                    mean_dist = np.mean(dist_matrix[idx, group_members])
                 else:
                     mean_dist = 0.0
 
