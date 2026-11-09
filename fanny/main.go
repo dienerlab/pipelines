@@ -279,13 +279,12 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		truncLen = 205
 	}
 
-	folderDate := strings.ReplaceAll(strings.Split(runArg, "__")[0], "-", "")
 	log.Printf(
 		"Received a request for the Patho Pipeline from %s. Run %s with amplicon size %d. Will save results in %s.",
-		m.Author, runArg, truncLen, folderDate,
+		m.Author, runArg, truncLen, runArg,
 	)
 
-	if _, err := os.Stat(folderDate); !os.IsNotExist(err) {
+	if _, err := os.Stat(runArg); !os.IsNotExist(err) {
 		s.ChannelMessageSend(
 			m.ChannelID,
 			fmt.Sprintf(
@@ -293,7 +292,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 					"Rerunning the pipeline will only work if the pipeline itself was updated *not* "+
 					"if the sequencing manifest was changed. In case there are errors please ask "+
 					"Christian to remove the cache and results.",
-				folderDate,
+				runArg,
 			),
 		)
 	}
@@ -304,7 +303,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 		filepath.Join(Pipelines, "16S", "patho.nf"),
 		"--run", runArg, "--read_length", strconv.Itoa(truncLen), "--upload",
 		"-with-conda", filepath.Join(Envs, "16S"),
-		"-profile", "standard,collab", "-output-dir", folderDate,
+		"-profile", "standard,collab", "-output-dir", runArg,
 	)
 
 	s.ChannelMessageSend(
@@ -327,17 +326,17 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 	}
 	s.MessageReactionAdd(m.ChannelID, m.ID, "✅")
 
-	manifest, err := filepath.Glob(filepath.Join(folderDate, "manifest_*.xlsx"))
+	manifest, err := filepath.Glob(filepath.Join(runArg, "manifest_*.xlsx"))
 	if err != nil {
-		log.Fatalf("Could not find manifest file in %s.", folderDate)
+		log.Fatalf("Could not find manifest file in %s.", runArg)
 	}
 
 	// Collect output files
 	var files []*discordgo.File
 	paths := []struct{ name, path string }{
-		{"amplicon_types.png", filepath.Join(folderDate, "figures", "amplicon_types.png")},
-		{"genus.png", filepath.Join(folderDate, "figures", "genus_top12.png")},
-		{"read_stats.csv", filepath.Join(folderDate, "tables", "read_stats.csv")},
+		{"amplicon_types.png", filepath.Join(runArg, "figures", "amplicon_types.png")},
+		{"genus.png", filepath.Join(runArg, "figures", "genus_top12.png")},
+		{"read_stats.csv", filepath.Join(runArg, "tables", "read_stats.csv")},
 		{filepath.Base(manifest[0]), manifest[0]},
 	}
 	for _, p := range paths {
@@ -357,7 +356,7 @@ func handlePatho(s *discordgo.Session, m *discordgo.MessageCreate, args []string
 
 You should be able to find the rest of the results in the folder '%s' at https://box.medunigraz.at/f/186637353 .
 Attached are the QC results and genus abundances.`,
-				folderDate,
+				runArg,
 			),
 			Color: 0x00FF00,
 		}},
