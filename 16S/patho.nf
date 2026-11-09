@@ -266,6 +266,6 @@ process upload {
     mkdir trees && mv *.tree trees
     mkdir logs && mv *.log logs
     rclone copy -P -L . \
-        "nextcloud:/Patho 16S sequencing/${params.run.replaceAll('-', '').split('__')[0]}"
+        "nextcloud:/Patho 16S sequencing/${params.run}"
     """
 }
