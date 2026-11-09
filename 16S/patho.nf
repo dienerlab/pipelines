@@ -143,9 +143,9 @@ process download_raw_files {
     script:
     """
     mkdir raw
-    pre=\$(Rscript -e "paste0(format(Sys.Date(), '%Y'), quarters(Sys.Date())) |> cat()")
+    pre=\$(Rscript -e "paste0(format('${runID.split('__')[0]}', '%Y'), quarters('${runID.split('__')[0]}')) |> cat()")
     rclone copy -P \
-        "nextcloud:/Analysisresult_Sequenzierung_Hygiene_16s_Diener/input_\$pre/${params.run}" \
+        "nextcloud:/Analysisresult_Sequenzierung_Hygiene_16s_Diener/input_\$pre/${runID}" \
         raw
     """
 }
