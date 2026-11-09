@@ -32,7 +32,7 @@ process find_files {
     )
 
     files <- find_read_files(
-        "raw/",
+        "raw",
         format=formats[["${params.pattern}"]],
         dirs_are_runs = T
     )
