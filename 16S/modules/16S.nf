@@ -27,7 +27,7 @@ process find_files {
 
     formats <- file_formats
     formats[["patho"]] <- list(
-        pattern="([A-Za-z0-9\\\\-]+)__IonXpress_(\\\\d+)_.+.basecaller.fastq.gz",
+        pattern="([A-Za-z0-9\\\\-]+)__(?:IonXpress|S5B\\\\-\\\\d{4})_X?(\\\\d+).*\\\\.fastq\\\\.gz",
         annotations=c("patho_id", "id")
     )
 
