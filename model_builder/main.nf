@@ -433,10 +433,15 @@ process model_db {
 
   if __name__ == "__main__":
     manifest = pd.read_csv("${genomes}")
-    taxa = manifest.lineage.str.split(";", expand=True).iloc[:, 0:7]
-    taxa.columns = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
+    taxa = manifest.lineage.str.split(";", expand=True)
+    if taxa.shape[1] == 7:
+        taxa.columns = ["kingdom", "phylum", "class", "order", "family", "genus", "species"]
+    else:
+        taxa = taxa.iloc[:, 0:8]
+        taxa.columns = ["kingdom", "phylum", "class", "order", "family", "genus", "species", "strain"]
     manifest = pd.concat([manifest, taxa], axis=1)
-    manifest["strain"] = manifest.id.str.replace("_", " ")
+    if not "strain" in manifest.columns:
+        manifest["strain"] = manifest.id.str.replace("_", " ")
     manifest["file"] = manifest.id + ".xml.gz"
     manifest = manifest[manifest.file.isin(glob("*.xml.gz"))]
     rates = workflow(
