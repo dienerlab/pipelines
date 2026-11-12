@@ -45,12 +45,15 @@ idea was to make a new pipeline from scratch. But, I never got to that.
 ## New pipelines from 2026
 
 In 2026 there were two pipelines that got closer to the criteria. [Tofu-MAAPO](https://github.com/ikmb/TOFU-MAaPO)
-was published and [nf-core/mag](https://nf-co.re/mag/5.5.0) got a major update.
+was published and [nf-core/mag](https://nf-co.re/mag/5.5.0) got a major update. Here compared with some older ones.
 
 | Pipeline    | [bus factor](https://en.wikipedia.org/wiki/Bus_factor) | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
 |-------------|--------------------------------------------------------|---|---|---|---|---|---|---|---|---|
 | Tofu-MAAPO  | 1  | ✅ | ❌ | ❌ | 😐 | ❌ | ✅ | ❌ | ✅ | ❌ |
 | nf-core/mag | 3+ | ✅ | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ | 😐 | ✅ |
+| *older:* |  |  |  |  | |  |  |  |  |  |
+| ATLAS | 0 (2 in 2y) | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
+| [own](https://github.com/dienerlab/pipelines/blob/main/metagenomics/binning.nf) | 1 | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
 
 [Bus Factor](https://en.wikipedia.org/wiki/Bus_factor) was calculated as active contributors in the last 3 months with more than 10 lines of code.
 
