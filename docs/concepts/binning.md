@@ -40,7 +40,7 @@ Based on those my criteria for a pipeline were:
     Some additional insights: The Coleman paper suggests that CheckM2 estimates are only correct for non-chimeric genomes. DasTool was shown to sometimes makes bins worse, especially the deep learning ones. The Kim paper suggests that multi-sample has diminishing returns that start with quite small sample groups (~10).
 
 Back in 2025 there was not a single pipeline that would implement more than 2 of those, so the
-idea was to make a new pipeline from scratch. But, I never got to that.
+idea was to make a new pipeline from scratch. There was a draft pipeline, but I never got to adding multiple binners.
 
 ## New pipelines from 2026
 
